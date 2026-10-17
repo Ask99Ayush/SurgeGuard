@@ -1,0 +1,214 @@
+# SurgeGuard site configuration. Rendered with envsubst at container start; only variables
+# present in the container environment are substituted (Nginx's own $variables are untouched).
+
+limit_req_zone $binary_remote_addr zone=sg_site:20m rate=${PROXY_RATE_LIMIT_RPS}r/s;
+# Joins create server-side state, so they get a tighter per-IP budget of their own.
+limit_req_zone $binary_remote_addr zone=sg_join:10m rate=${PROXY_JOIN_RATE_LIMIT_RPS}r/s;
+limit_req_status 429;
+limit_req_log_level warn;
+
+# Public static content only. Keys ignore cookies and query strings.
+proxy_cache_path /var/cache/nginx/sg levels=1:2 keys_zone=sg_static:10m max_size=100m inactive=10m use_temp_path=off;
+
+# =============================================================================================
+# Protected entry point: the origin is only reachable with a valid admission token.
+# =============================================================================================
+server {
+    listen 8080;
+    server_name _;
+    # Relative Location headers: the published port (or a load balancer) differs from 8080.
+    absolute_redirect off;
+    include /etc/nginx/snippets/security-headers.conf;
+
+    # ---- never public -------------------------------------------------------------------
+    location ^~ /internal/      { return 404; }
+    location ^~ /api/v1/admin   { return 404; }
+    location = /metrics         { return 404; }
+    location = /favicon.ico     { access_log off; return 204; }
+
+    # ---- SurgeGuard visitor API ---------------------------------------------------------
+    location = /api/v1/queue/join {
+        limit_req zone=sg_site burst=${PROXY_RATE_LIMIT_BURST} nodelay;
+        limit_req zone=sg_join burst=${PROXY_JOIN_RATE_LIMIT_BURST} nodelay;
+        include /etc/nginx/snippets/proxy-headers.conf;
+        include /etc/nginx/snippets/security-headers.conf;
+        add_header Cache-Control "no-store" always;
+        proxy_connect_timeout 2s;
+        proxy_read_timeout 5s;
+        proxy_next_upstream off;
+        error_page 502 503 504 =503 @api_unavailable;
+        proxy_pass http://sg_api;
+    }
+
+    location ^~ /api/v1/queue/ {
+        limit_req zone=sg_site burst=${PROXY_RATE_LIMIT_BURST} nodelay;
+        include /etc/nginx/snippets/proxy-headers.conf;
+        include /etc/nginx/snippets/security-headers.conf;
+        add_header Cache-Control "no-store" always;
+        proxy_connect_timeout 2s;
+        proxy_read_timeout 5s;
+        proxy_next_upstream off;
+        error_page 502 503 504 =503 @api_unavailable;
+        proxy_pass http://sg_api;
+    }
+
+    location @api_unavailable {
+        default_type application/json;
+        add_header Retry-After 5 always;
+        add_header Cache-Control "no-store" always;
+        return 503 '{"error":{"code":"unavailable","message":"The waiting room is temporarily unavailable. Please retry shortly."}}';
+    }
+
+    # ---- waiting room page and its assets (served by the frontend) ------------------------
+    location = /waiting-room {
+        limit_req zone=sg_site burst=${PROXY_RATE_LIMIT_BURST} nodelay;
+        include /etc/nginx/snippets/proxy-headers.conf;
+        proxy_connect_timeout 2s;
+        proxy_read_timeout 10s;
+        error_page 502 503 504 =503 @sg_unavailable;
+        proxy_pass http://sg_frontend;
+    }
+
+    location ^~ /_next/static/ {
+        include /etc/nginx/snippets/proxy-headers.conf;
+        include /etc/nginx/snippets/security-headers.conf;
+        proxy_set_header Cookie "";
+        proxy_ignore_headers Set-Cookie;
+        proxy_hide_header Set-Cookie;
+        proxy_cache sg_static;
+        proxy_cache_key "$scheme$host$uri";
+        proxy_cache_valid 200 ${CACHE_TTL_SECONDS}s;
+        proxy_cache_lock on;
+        add_header X-Cache-Status $upstream_cache_status always;
+        proxy_pass http://sg_frontend;
+    }
+
+    location ^~ /_next/ {
+        include /etc/nginx/snippets/proxy-headers.conf;
+        proxy_pass http://sg_frontend;
+    }
+
+    # ---- origin static assets: public, cacheable, cookies stripped in both directions -----
+    location ^~ /static/ {
+        limit_req zone=sg_site burst=${PROXY_RATE_LIMIT_BURST} nodelay;
+        include /etc/nginx/snippets/proxy-headers.conf;
+        include /etc/nginx/snippets/security-headers.conf;
+        proxy_set_header X-Origin-Key "${ORIGIN_SHARED_SECRET}";
+        proxy_set_header Cookie "";
+        proxy_ignore_headers Set-Cookie;
+        proxy_hide_header Set-Cookie;
+        proxy_cache sg_static;
+        proxy_cache_methods GET HEAD;
+        proxy_cache_key "$scheme$host$uri";
+        proxy_cache_valid 200 ${CACHE_TTL_SECONDS}s;
+        proxy_cache_lock on;
+        proxy_cache_use_stale error timeout updating http_502 http_503 http_504;
+        add_header X-Cache-Status $upstream_cache_status always;
+        proxy_connect_timeout ${PROXY_CONNECT_TIMEOUT_SECONDS}s;
+        proxy_read_timeout ${PROXY_READ_TIMEOUT_SECONDS}s;
+        proxy_next_upstream error timeout http_502 http_504;
+        proxy_next_upstream_tries 2;
+        error_page 502 504 =503 @origin_unavailable;
+        proxy_pass http://origin_pool;
+    }
+
+    # ---- everything else is the protected origin ------------------------------------------
+    location / {
+        limit_req zone=sg_site burst=${PROXY_RATE_LIMIT_BURST} nodelay;
+
+        auth_request /_sg_auth;
+        auth_request_set $sg_visitor $upstream_http_x_sg_visitor;
+
+        # 401 = no valid admission -> waiting room. 500 = auth unavailable -> fail closed.
+        error_page 401 = @to_waiting_room;
+        error_page 500 =503 @sg_unavailable;
+        error_page 502 504 =503 @origin_unavailable;
+
+        include /etc/nginx/snippets/proxy-headers.conf;
+        proxy_set_header X-Origin-Key "${ORIGIN_SHARED_SECRET}";
+        proxy_set_header X-SG-Visitor $sg_visitor;
+
+        # Dynamic, personalized responses are never cached.
+        proxy_cache off;
+        proxy_no_cache 1;
+
+        proxy_connect_timeout ${PROXY_CONNECT_TIMEOUT_SECONDS}s;
+        proxy_send_timeout ${PROXY_READ_TIMEOUT_SECONDS}s;
+        proxy_read_timeout ${PROXY_READ_TIMEOUT_SECONDS}s;
+        # Retries go to the next backend only for connection errors/timeouts/502/504, at most
+        # once. Nginx never retries non-idempotent methods (POST, PATCH, LOCK) without the
+        # explicit `non_idempotent` flag, which is deliberately not set.
+        proxy_next_upstream error timeout http_502 http_504;
+        proxy_next_upstream_tries 2;
+        proxy_next_upstream_timeout 10s;
+        proxy_pass http://origin_pool;
+    }
+
+    location = /_sg_auth {
+        internal;
+        include /etc/nginx/snippets/proxy-headers.conf;
+        proxy_set_header X-SG-Proxy-Secret "${INTERNAL_AUTH_SECRET}";
+        proxy_set_header X-Original-URI $request_uri;
+        proxy_set_header X-Original-Method $request_method;
+        proxy_pass_request_body off;
+        proxy_set_header Content-Length "";
+        proxy_connect_timeout 1s;
+        proxy_read_timeout ${PROXY_AUTH_TIMEOUT_SECONDS}s;
+        proxy_next_upstream off;
+        proxy_pass http://sg_api/internal/auth;
+    }
+
+    location @to_waiting_room {
+        include /etc/nginx/snippets/security-headers.conf;
+        add_header Cache-Control "no-store" always;
+        return 302 /waiting-room;
+    }
+
+    location @sg_unavailable {
+        include /etc/nginx/snippets/security-headers.conf;
+        add_header Cache-Control "no-store" always;
+        add_header Retry-After 10 always;
+        root /usr/share/nginx/html/sg;
+        try_files /unavailable.html =503;
+    }
+
+    location @origin_unavailable {
+        include /etc/nginx/snippets/security-headers.conf;
+        add_header Cache-Control "no-store" always;
+        add_header Retry-After 15 always;
+        root /usr/share/nginx/html/sg;
+        try_files /no-backend.html =503;
+    }
+}
+
+# =============================================================================================
+# UNPROTECTED comparison path: same backends, no queue, no auth, no rate limiting.
+# Local testing only; bound to loopback by Compose and never deployed outside development.
+# =============================================================================================
+server {
+    listen 8081;
+    server_name _;
+
+    location / {
+        include /etc/nginx/snippets/proxy-headers.conf;
+        proxy_set_header X-Origin-Key "${ORIGIN_SHARED_SECRET}";
+        proxy_connect_timeout ${PROXY_CONNECT_TIMEOUT_SECONDS}s;
+        proxy_send_timeout ${PROXY_READ_TIMEOUT_SECONDS}s;
+        proxy_read_timeout ${PROXY_READ_TIMEOUT_SECONDS}s;
+        proxy_next_upstream error timeout http_502 http_504;
+        proxy_next_upstream_tries 2;
+        proxy_next_upstream_timeout 10s;
+        proxy_pass http://origin_direct;
+    }
+}
+
+# =============================================================================================
+# Internal status endpoint for nginx-prometheus-exporter and the container healthcheck.
+# Not published to the host.
+# =============================================================================================
+server {
+    listen 8090;
+    access_log off;
+    location = /stub_status { stub_status; }
+    location = /healthz { default_type text/plain; return 200 "ok\n"; }
+}
