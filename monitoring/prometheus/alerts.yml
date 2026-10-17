@@ -1,0 +1,71 @@
+groups:
+  - name: surgeguard
+    rules:
+      - alert: QueueGrowing
+        expr: max(surgeguard_queue_length) > 100 and deriv(max(surgeguard_queue_length)[5m:15s]) > 0.5
+        for: 2m
+        labels: {severity: warning}
+        annotations:
+          summary: "Queue keeps growing (> 100 waiting and rising for 2m). Check admission rate and backend capacity."
+
+      - alert: AdmissionFailures
+        expr: sum(increase(surgeguard_admission_failures_total[2m])) > 0
+        for: 1m
+        labels: {severity: critical}
+        annotations:
+          summary: "The admission worker is failing ticks; nobody is being admitted while this persists."
+
+      - alert: HighOriginErrorRate
+        expr: |
+          sum(rate(demo_requests_total{status=~"5.."}[1m]))
+            / clamp_min(sum(rate(demo_requests_total[1m])), 0.001) > 0.05
+        for: 1m
+        labels: {severity: critical}
+        annotations:
+          summary: "More than 5% of origin responses are 5xx."
+
+      - alert: BackendDown
+        expr: min by (backend) (surgeguard_backend_up) == 0
+        for: 30s
+        labels: {severity: warning}
+        annotations:
+          summary: "Backend {{ $labels.backend }} is failing active health checks."
+
+      - alert: AllBackendsDown
+        expr: max(surgeguard_backends_healthy) == 0
+        for: 15s
+        labels: {severity: critical}
+        annotations:
+          summary: "No healthy backend: admission is auto-paused."
+
+      - alert: RedisUnavailable
+        # redis_up comes from redis_exporter; absent() covers the exporter itself being gone.
+        expr: |
+          max(redis_up{job="redis"}) == 0
+            or max(surgeguard_redis_up{job="admission-worker"}) == 0
+            or absent(redis_up{job="redis"})
+        for: 30s
+        labels: {severity: critical}
+        annotations:
+          summary: "Redis is unreachable. SurgeGuard is failing closed (no admissions)."
+
+      - alert: WorkerDown
+        expr: up{job="admission-worker"} == 0 or (time() - max(surgeguard_worker_last_tick_timestamp_seconds)) > 30
+        for: 30s
+        labels: {severity: critical}
+        annotations:
+          summary: "The admission worker is down or stuck; the queue is not moving."
+
+      - alert: NoAdmissionLeader
+        expr: max(surgeguard_worker_is_leader) == 0
+        for: 1m
+        labels: {severity: critical}
+        annotations:
+          summary: "No worker holds the admission leader lock."
+
+      - alert: ApiDown
+        expr: up{job="surgeguard-api"} == 0
+        for: 30s
+        labels: {severity: critical}
+        annotations:
+          summary: "SurgeGuard API is down. The proxy fails closed for every visitor without a cached decision."
