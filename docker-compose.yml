@@ -1,0 +1,382 @@
+# SurgeGuard local stack. All configuration comes from the git-ignored .env (run `make setup`).
+# Host ports bind to ${BIND_ADDRESS} (loopback by default).
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+x-hardening: &hardening
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+
+x-backend-env: &backend-env
+  APP_ENV: ${APP_ENV:?run make setup first}
+  LOG_LEVEL: ${LOG_LEVEL}
+  API_HOST: ${API_HOST}
+  API_PORT: ${API_PORT}
+  REDIS_URL: ${REDIS_URL}
+  REDIS_PASSWORD: ${REDIS_PASSWORD:?missing REDIS_PASSWORD}
+  REDIS_KEY_PREFIX: ${REDIS_KEY_PREFIX}
+  ADMISSION_RATE: ${ADMISSION_RATE}
+  ADMISSION_BURST: ${ADMISSION_BURST}
+  MAX_ACTIVE_ADMITTED: ${MAX_ACTIVE_ADMITTED}
+  QUEUE_MAX_SIZE: ${QUEUE_MAX_SIZE}
+  QUEUE_POLL_INTERVAL_SECONDS: ${QUEUE_POLL_INTERVAL_SECONDS}
+  HEARTBEAT_TIMEOUT_SECONDS: ${HEARTBEAT_TIMEOUT_SECONDS}
+  REJOIN_GRACE_SECONDS: ${REJOIN_GRACE_SECONDS}
+  VISITOR_RECORD_TTL_SECONDS: ${VISITOR_RECORD_TTL_SECONDS}
+  WORKER_TICK_SECONDS: ${WORKER_TICK_SECONDS}
+  WORKER_LOCK_TTL_SECONDS: ${WORKER_LOCK_TTL_SECONDS}
+  WAIT_ESTIMATE_WINDOW_SECONDS: ${WAIT_ESTIMATE_WINDOW_SECONDS}
+  WAIT_ESTIMATE_MIN_SAMPLES: ${WAIT_ESTIMATE_MIN_SAMPLES}
+  BACKEND_URLS: ${BACKEND_URLS}
+  BACKEND_HEALTH_PATH: ${BACKEND_HEALTH_PATH}
+  BACKEND_HEALTH_INTERVAL_SECONDS: ${BACKEND_HEALTH_INTERVAL_SECONDS}
+  BACKEND_HEALTH_TIMEOUT_SECONDS: ${BACKEND_HEALTH_TIMEOUT_SECONDS}
+  BACKEND_HEALTH_FAILURE_THRESHOLD: ${BACKEND_HEALTH_FAILURE_THRESHOLD}
+  BACKEND_HEALTH_RECOVERY_THRESHOLD: ${BACKEND_HEALTH_RECOVERY_THRESHOLD}
+  TOKEN_TTL_SECONDS: ${TOKEN_TTL_SECONDS}
+  TOKEN_SIGNING_SECRET: ${TOKEN_SIGNING_SECRET:?missing TOKEN_SIGNING_SECRET}
+  TOKEN_SIGNING_KID: ${TOKEN_SIGNING_KID}
+  TOKEN_VERIFY_KEYS: ${TOKEN_VERIFY_KEYS}
+  TOKEN_ISSUER: ${TOKEN_ISSUER}
+  TOKEN_AUDIENCE: ${TOKEN_AUDIENCE}
+  VISITOR_COOKIE_SECRET: ${VISITOR_COOKIE_SECRET:?missing VISITOR_COOKIE_SECRET}
+  COOKIE_SECURE: ${COOKIE_SECURE}
+  INTERNAL_AUTH_SECRET: ${INTERNAL_AUTH_SECRET:?missing INTERNAL_AUTH_SECRET}
+  ADMIN_API_KEY: ${ADMIN_API_KEY:?missing ADMIN_API_KEY}
+  RATE_LIMIT_REQUESTS: ${RATE_LIMIT_REQUESTS}
+  RATE_LIMIT_WINDOW_SECONDS: ${RATE_LIMIT_WINDOW_SECONDS}
+  METRICS_ENABLED: ${METRICS_ENABLED}
+
+x-demo: &demo
+  build:
+    context: ./demo-site
+  image: surgeguard/demo-site:local
+  restart: unless-stopped
+  logging: *logging
+  <<: *hardening
+  read_only: true
+  networks: [origin]
+  healthcheck:
+    test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2)"]
+    interval: 5s
+    timeout: 3s
+    retries: 5
+  deploy:
+    resources:
+      limits: {cpus: "0.50", memory: 160M}
+
+services:
+  redis:
+    image: redis:7.4.2-alpine
+    user: redis
+    # The password is written to a tmp config file so it never appears in the process list.
+    command:
+      - sh
+      - -c
+      - printf 'requirepass %s\n' "$$REDIS_PASSWORD" > /tmp/redis.conf && exec redis-server /tmp/redis.conf --appendonly yes --maxmemory "$$REDIS_MAXMEMORY" --maxmemory-policy noeviction
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?missing REDIS_PASSWORD}
+      REDIS_MAXMEMORY: ${REDIS_MAXMEMORY}
+    volumes:
+      - redis-data:/data
+    networks: [data]
+    restart: unless-stopped
+    logging: *logging
+    <<: *hardening
+    healthcheck:
+      test: ["CMD-SHELL", "REDISCLI_AUTH=\"$$REDIS_PASSWORD\" redis-cli ping | grep -q PONG"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    deploy:
+      resources:
+        limits: {cpus: "0.50", memory: 384M}
+
+  api:
+    build:
+      context: ./backend
+      target: runtime
+    image: surgeguard/backend:local
+    command: ["sh", "-c", "exec uvicorn app.main:app_factory --factory --host \"$$API_HOST\" --port \"$$API_PORT\" --no-proxy-headers --no-server-header"]
+    environment: *backend-env
+    networks: [app, data]
+    depends_on:
+      redis: {condition: service_healthy}
+    restart: unless-stopped
+    logging: *logging
+    <<: *hardening
+    read_only: true
+    tmpfs: [/tmp]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os,urllib.request; urllib.request.urlopen('http://127.0.0.1:%s/healthz' % os.environ['API_PORT'], timeout=2)"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    deploy:
+      resources:
+        limits: {cpus: "1.0", memory: 256M}
+
+  worker:
+    build:
+      context: ./backend
+      target: runtime
+    image: surgeguard/backend:local
+    command: ["python", "-m", "app.workers.admission_worker"]
+    environment: *backend-env
+    networks: [app, data, origin]
+    depends_on:
+      redis: {condition: service_healthy}
+      api: {condition: service_healthy}
+    restart: unless-stopped
+    logging: *logging
+    <<: *hardening
+    read_only: true
+    tmpfs: [/tmp]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:9100/metrics', timeout=2)"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    deploy:
+      resources:
+        limits: {cpus: "0.50", memory: 192M}
+
+  demo-1:
+    <<: *demo
+    environment:
+      INSTANCE_NAME: demo-1
+      DEMO_MAX_CONCURRENCY: ${DEMO_MAX_CONCURRENCY}
+      DEMO_WORK_MS: ${DEMO_WORK_MS}
+      DEMO_QUEUE_TIMEOUT_MS: ${DEMO_QUEUE_TIMEOUT_MS}
+      ORIGIN_SHARED_SECRET: ${ORIGIN_SHARED_SECRET:?missing ORIGIN_SHARED_SECRET}
+
+  demo-2:
+    <<: *demo
+    environment:
+      INSTANCE_NAME: demo-2
+      DEMO_MAX_CONCURRENCY: ${DEMO_MAX_CONCURRENCY}
+      DEMO_WORK_MS: ${DEMO_WORK_MS}
+      DEMO_QUEUE_TIMEOUT_MS: ${DEMO_QUEUE_TIMEOUT_MS}
+      ORIGIN_SHARED_SECRET: ${ORIGIN_SHARED_SECRET:?missing ORIGIN_SHARED_SECRET}
+
+  nginx:
+    build:
+      context: ./proxy/nginx
+    image: surgeguard/nginx:local
+    environment:
+      BACKEND_URLS: ${BACKEND_URLS}
+      NGINX_API_UPSTREAM: api:${API_PORT}
+      NGINX_FRONTEND_UPSTREAM: frontend:3000
+      PROXY_RATE_LIMIT_RPS: ${PROXY_RATE_LIMIT_RPS}
+      PROXY_RATE_LIMIT_BURST: ${PROXY_RATE_LIMIT_BURST}
+      PROXY_JOIN_RATE_LIMIT_RPS: ${PROXY_JOIN_RATE_LIMIT_RPS}
+      PROXY_JOIN_RATE_LIMIT_BURST: ${PROXY_JOIN_RATE_LIMIT_BURST}
+      PROXY_CONNECT_TIMEOUT_SECONDS: ${PROXY_CONNECT_TIMEOUT_SECONDS}
+      PROXY_READ_TIMEOUT_SECONDS: ${PROXY_READ_TIMEOUT_SECONDS}
+      PROXY_AUTH_TIMEOUT_SECONDS: ${PROXY_AUTH_TIMEOUT_SECONDS}
+      CACHE_TTL_SECONDS: ${CACHE_TTL_SECONDS}
+      ORIGIN_SHARED_SECRET: ${ORIGIN_SHARED_SECRET:?missing ORIGIN_SHARED_SECRET}
+      INTERNAL_AUTH_SECRET: ${INTERNAL_AUTH_SECRET:?missing INTERNAL_AUTH_SECRET}
+    ports:
+      - "${BIND_ADDRESS}:${PROTECTED_PORT}:8080"
+      - "${BIND_ADDRESS}:${DIRECT_PORT}:8081"
+    networks: [edge, app, origin]
+    depends_on:
+      api: {condition: service_healthy}
+      demo-1: {condition: service_healthy}
+      demo-2: {condition: service_healthy}
+    restart: unless-stopped
+    logging: *logging
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8090/healthz"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    deploy:
+      resources:
+        limits: {cpus: "1.0", memory: 128M}
+
+  frontend:
+    build:
+      context: ./frontend
+    image: surgeguard/frontend:local
+    environment:
+      APP_ENV: ${APP_ENV}
+      API_INTERNAL_URL: ${API_INTERNAL_URL}
+      ADMIN_API_KEY: ${ADMIN_API_KEY:?missing ADMIN_API_KEY}
+      ADMIN_USERNAME: ${ADMIN_USERNAME}
+      ADMIN_PASSWORD_HASH: ${ADMIN_PASSWORD_HASH:?missing ADMIN_PASSWORD_HASH}
+      SESSION_SECRET: ${SESSION_SECRET:?missing SESSION_SECRET}
+      SESSION_TTL_SECONDS: ${SESSION_TTL_SECONDS}
+      LOGIN_RATE_LIMIT_ATTEMPTS: ${LOGIN_RATE_LIMIT_ATTEMPTS}
+      LOGIN_RATE_LIMIT_WINDOW_SECONDS: ${LOGIN_RATE_LIMIT_WINDOW_SECONDS}
+      DEMO_LOGIN_ENABLED: ${DEMO_LOGIN_ENABLED:-false}
+      DEMO_ROLE: ${DEMO_ROLE:-viewer}
+      DEMO_USERNAME: ${DEMO_USERNAME:-}
+      DEMO_PASSWORD: ${DEMO_PASSWORD:-}
+      REVIEWER_LOGIN_ENABLED: ${REVIEWER_LOGIN_ENABLED:-false}
+      REVIEWER_USERNAME: ${REVIEWER_USERNAME:-}
+      REVIEWER_PASSWORD: ${REVIEWER_PASSWORD:-}
+      COOKIE_SECURE: ${COOKIE_SECURE}
+      PROMETHEUS_URL: ${PROMETHEUS_URL}
+      PUBLIC_SITE_URL: ${PUBLIC_SITE_URL}
+      PUBLIC_GRAFANA_URL: ${PUBLIC_GRAFANA_URL}
+    ports:
+      - "${BIND_ADDRESS}:${FRONTEND_PORT}:3000"
+    networks: [edge, app]
+    depends_on:
+      api: {condition: service_healthy}
+    restart: unless-stopped
+    logging: *logging
+    <<: *hardening
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /app/.next/cache:mode=1777
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    deploy:
+      resources:
+        limits: {cpus: "1.0", memory: 384M}
+
+  prometheus:
+    image: prom/prometheus:v3.1.0
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=7d
+    volumes:
+      - ./monitoring/prometheus:/etc/prometheus:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "${BIND_ADDRESS}:${PROMETHEUS_PORT}:9090"
+    networks: [edge, app, origin]
+    restart: unless-stopped
+    logging: *logging
+    <<: *hardening
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:9090/-/ready"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    deploy:
+      resources:
+        limits: {cpus: "0.50", memory: 512M}
+
+  # Independent Redis health for Prometheus (redis_up, latency, memory). Reads the password from env.
+  redis-exporter:
+    image: oliver006/redis_exporter:v1.66.0
+    environment:
+      REDIS_ADDR: redis://redis:6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?missing REDIS_PASSWORD}
+    networks: [data, app]
+    restart: unless-stopped
+    logging: *logging
+    <<: *hardening
+    deploy:
+      resources:
+        limits: {cpus: "0.25", memory: 64M}
+
+  nginx-exporter:
+    image: nginx/nginx-prometheus-exporter:1.3.0
+    command: ["--nginx.scrape-uri=http://nginx:8090/stub_status"]
+    networks: [app]
+    depends_on:
+      nginx: {condition: service_healthy}
+    restart: unless-stopped
+    logging: *logging
+    <<: *hardening
+    deploy:
+      resources:
+        limits: {cpus: "0.25", memory: 64M}
+
+  grafana:
+    image: grafana/grafana:11.4.0
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?missing GRAFANA_ADMIN_PASSWORD}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_NEWS_NEWS_FEED_ENABLED: "false"
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/surgeguard-overview.json
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "${BIND_ADDRESS}:${GRAFANA_PORT}:3000"
+    networks: [edge, app]
+    depends_on:
+      prometheus: {condition: service_healthy}
+    restart: unless-stopped
+    logging: *logging
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:3000/api/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    deploy:
+      resources:
+        limits: {cpus: "0.50", memory: 256M}
+
+  # Load generator, only started explicitly (make loadtest / make demo).
+  k6:
+    image: grafana/k6:1.0.0
+    profiles: [loadtest]
+    user: "${K6_UID:-12345}:${K6_GID:-12345}"
+    volumes:
+      - ./loadtest:/loadtest
+    working_dir: /loadtest
+    networks: [edge]
+    deploy:
+      resources:
+        limits: {cpus: "2.0", memory: 1G}
+
+  # Proxy / security-boundary tests (make test-proxy). Attached to the internal networks on purpose
+  # so it can prove the origin and the internal auth endpoint reject direct callers.
+  proxy-tests:
+    build:
+      context: ./proxy/tests
+    profiles: [proxytest]
+    environment:
+      ADMIN_API_KEY: ${ADMIN_API_KEY}
+      TOKEN_SIGNING_SECRET: ${TOKEN_SIGNING_SECRET}
+      TOKEN_SIGNING_KID: ${TOKEN_SIGNING_KID}
+      TOKEN_ISSUER: ${TOKEN_ISSUER}
+      TOKEN_AUDIENCE: ${TOKEN_AUDIENCE}
+      PROXY_RATE_LIMIT_RPS: ${PROXY_RATE_LIMIT_RPS}
+      PROXY_RATE_LIMIT_BURST: ${PROXY_RATE_LIMIT_BURST}
+      PROXY_JOIN_RATE_LIMIT_RPS: ${PROXY_JOIN_RATE_LIMIT_RPS}
+      PROXY_JOIN_RATE_LIMIT_BURST: ${PROXY_JOIN_RATE_LIMIT_BURST}
+      ORIGIN_URLS: ${BACKEND_URLS}
+      API_URL: http://api:${API_PORT}
+    networks: [edge, app, origin]
+
+networks:
+  edge: {}
+  app:
+    internal: true
+  data:
+    internal: true
+  origin:
+    internal: true
+
+volumes:
+  redis-data:
+  prometheus-data:
+  grafana-data:

@@ -1,0 +1,25 @@
+# Throwaway stack for backend tests against a real Redis. Used by `make test-backend`.
+# Always run with `-p surgeguard-test` (the Makefile does): COMPOSE_PROJECT_NAME in .env would
+# otherwise override `name:` below and point teardown at the main stack.
+name: surgeguard-test
+
+services:
+  redis-test:
+    image: redis:7.4.2-alpine
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    tmpfs: [/data]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 2s
+      retries: 15
+
+  backend-tests:
+    build:
+      context: ./backend
+      target: test
+    environment:
+      TEST_REDIS_URL: redis://redis-test:6379/0
+    depends_on:
+      redis-test: {condition: service_healthy}
+    command: ["sh", "-c", "ruff check app tests && ruff format --check app tests && mypy && pytest -q"]

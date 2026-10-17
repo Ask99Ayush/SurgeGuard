@@ -1,0 +1,14 @@
+title = "SurgeGuard gitleaks config"
+
+[extend]
+useDefault = true
+
+# Test fixtures use obviously fake, documented values; templates use <generated> placeholders.
+[allowlist]
+description = "test fixtures and templates"
+paths = [
+  '''backend/tests/.*''',
+  '''frontend/src/.*\.test\.tsx?''',
+  '''\.env\.example''',
+  '''infra/terraform/\.env\.example''',
+]
