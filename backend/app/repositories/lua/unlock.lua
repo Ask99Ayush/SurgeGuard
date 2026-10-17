@@ -1,0 +1,6 @@
+-- Release the leader lock only if we still hold it.
+-- KEYS[1]: lock key. ARGV: token
+if redis.call('GET', KEYS[1]) == ARGV[1] then
+  return redis.call('DEL', KEYS[1])
+end
+return 0
