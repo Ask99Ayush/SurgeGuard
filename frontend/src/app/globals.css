@@ -1,0 +1,130 @@
+@import "tailwindcss";
+
+/*
+ * SurgeGuard design tokens. The single source of colour in the frontend:
+ * components use Tailwind utilities generated from @theme below, never raw hex values.
+ */
+:root {
+  --background: #08090b;
+  --surface: #101113;
+  --surface-elevated: #17181b;
+  --surface-hover: #1c1d21;
+  --border: #292a2e;
+  --border-strong: #3a3b41;
+  --foreground: #f5f5f6;
+  --muted: #a3a4aa;
+  --subtle: #8a8b91;
+  --accent: #ff5c65;
+  --success: #43c98b;
+  --warning: #f2b84b;
+  --danger: #ff626b;
+
+  --radius-card: 16px;
+  --radius-key: 14px;
+  --shadow-key: 0 1px 0 0 color-mix(in oklab, var(--foreground) 6%, transparent) inset,
+    0 -1px 0 0 color-mix(in oklab, black 60%, transparent) inset,
+    0 12px 32px -16px color-mix(in oklab, black 90%, transparent);
+  --shadow-pop: 0 24px 64px -24px color-mix(in oklab, black 85%, transparent);
+  --glow-accent: color-mix(in oklab, var(--accent) 18%, transparent);
+
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-elevated: var(--surface-elevated);
+  --color-surface-hover: var(--surface-hover);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-subtle: var(--subtle);
+  --color-accent: var(--accent);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, "SFMono-Regular", Menlo, monospace;
+
+  --radius-card: var(--radius-card);
+  --radius-key: var(--radius-key);
+  --shadow-key: var(--shadow-key);
+  --shadow-pop: var(--shadow-pop);
+}
+
+html {
+  background: var(--background);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: color-mix(in oklab, var(--accent) 35%, transparent);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* Keycap surface used across the landing page and stat tiles. */
+.keycap {
+  background: linear-gradient(180deg, var(--surface-elevated), var(--surface));
+  border: 1px solid var(--border);
+  border-radius: var(--radius-key);
+  box-shadow: var(--shadow-key);
+}
+
+.keycap-faded {
+  background: linear-gradient(180deg, color-mix(in oklab, var(--surface-elevated) 55%, transparent), transparent);
+  border: 1px solid color-mix(in oklab, var(--border) 45%, transparent);
+  border-radius: var(--radius-key);
+}
+
+.hairline-grid {
+  background-image: linear-gradient(to right, color-mix(in oklab, var(--border) 45%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in oklab, var(--border) 45%, transparent) 1px, transparent 1px);
+  background-size: 56px 56px;
+}
+
+.hero-glow {
+  background: radial-gradient(60% 50% at 70% 0%, var(--glow-accent), transparent 70%);
+}
+
+.fade-mask-b {
+  mask-image: linear-gradient(to bottom, black 55%, transparent);
+}
+
+.fade-mask-x {
+  mask-image: linear-gradient(to right, transparent, black 15%, black 85%, transparent);
+}
+
+@keyframes sg-advance {
+  from { transform: translateX(0); }
+  to { transform: translateX(28px); }
+}
+
+@keyframes sg-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
+.animate-advance { animation: sg-advance 2.4s linear infinite; }
+.animate-soft-pulse { animation: sg-pulse 2s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
