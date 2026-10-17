@@ -1,0 +1,15 @@
+# Remote state: copy to backend.tf (git-ignored) and fill in. The bucket must already exist with
+# versioning, default encryption (SSE-KMS) and a bucket policy limited to your deploy role.
+#
+# State can contain sensitive values (e.g. resource attributes). This configuration never writes
+# application secrets to state, but treat the state bucket as sensitive anyway.
+terraform {
+  backend "s3" {
+    bucket       = "<state-bucket-name>"
+    key          = "surgeguard/<environment>/terraform.tfstate"
+    region       = "<region>"
+    encrypt      = true
+    kms_key_id   = "<kms-key-arn>"
+    use_lockfile = true # S3-native state locking (Terraform >= 1.10)
+  }
+}

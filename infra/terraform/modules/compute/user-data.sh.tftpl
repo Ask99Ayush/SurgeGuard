@@ -1,0 +1,25 @@
+#!/bin/bash
+# Boot script for the SurgeGuard host (Amazon Linux 2023). Rendered by Terraform; contains no secrets.
+set -euo pipefail
+
+dnf install -y docker git jq
+systemctl enable --now docker
+mkdir -p /usr/local/lib/docker/cli-plugins
+COMPOSE_VERSION="v2.32.4"
+curl -fsSL "https://github.com/docker/compose/releases/download/$${COMPOSE_VERSION}/docker-compose-linux-$(uname -m)" \
+  -o /usr/local/lib/docker/cli-plugins/docker-compose
+chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+
+install -d -m 0750 /opt/surgeguard
+cd /opt/surgeguard
+if [ ! -d app ]; then git clone --depth 1 --branch "${app_version}" "${app_source_url}" app; fi
+cd app
+
+# Build .env from Parameter Store (one SecureString per KEY under the prefix).
+umask 077
+aws ssm get-parameters-by-path --region "${aws_region}" --path "${ssm_parameter_prefix}" \
+  --with-decryption --recursive --output json \
+  | jq -r '.Parameters[] | "\(.Name | split("/") | last)=\(.Value | @sh)"' > .env
+grep -q '^APP_ENV=' .env || { echo "Parameter Store prefix ${ssm_parameter_prefix} is empty" >&2; exit 1; }
+
+docker compose up -d --build
