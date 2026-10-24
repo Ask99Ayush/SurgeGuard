@@ -6,19 +6,19 @@
  */
 :root,
 [data-theme="dark"] {
-  --background: #080d16;
-  --surface: #0f1724;
-  --surface-elevated: #162032;
-  --surface-hover: #1e293b;
-  --border: #232f3e;
-  --border-strong: #33445c;
-  --foreground: #f8fafc;
-  --muted: #94a3b8;
-  --subtle: #64748b;
-  --accent: #ff9900;
-  --success: #22c55e;
-  --warning: #f59e0b;
-  --danger: #ef4444;
+  --background: #08090b;
+  --surface: #101113;
+  --surface-elevated: #17181b;
+  --surface-hover: #1c1d21;
+  --border: #292a2e;
+  --border-strong: #3a3b41;
+  --foreground: #f5f5f6;
+  --muted: #a3a4aa;
+  --subtle: #8a8b91;
+  --accent: #ff5c65;
+  --success: #43c98b;
+  --warning: #f2b84b;
+  --danger: #ff626b;
 
   --radius-card: 16px;
   --radius-key: 14px;
@@ -32,17 +32,17 @@
 }
 
 [data-theme="light"] {
-  --background: #f8fafc;
+  --background: #f4f4f6;
   --surface: #ffffff;
-  --surface-elevated: #f1f5f9;
-  --surface-hover: #e2e8f0;
-  --border: #e2e8f0;
-  --border-strong: #cbd5e1;
-  --foreground: #0f172a;
-  --muted: #475569;
-  --subtle: #64748b;
-  --accent: #ea580c;
-  --success: #16a34a;
+  --surface-elevated: #ededf0;
+  --surface-hover: #e4e4e8;
+  --border: #e1e1e6;
+  --border-strong: #ceced6;
+  --foreground: #111215;
+  --muted: #5e6068;
+  --subtle: #82848e;
+  --accent: #ff5c65;
+  --success: #2ea069;
   --warning: #d97706;
   --danger: #dc2626;
 
@@ -59,17 +59,17 @@
 
 @media (prefers-color-scheme: light) {
   :root:not([data-theme="dark"]):not([data-theme="light"]) {
-    --background: #f8fafc;
+    --background: #f4f4f6;
     --surface: #ffffff;
-    --surface-elevated: #f1f5f9;
-    --surface-hover: #e2e8f0;
-    --border: #e2e8f0;
-    --border-strong: #cbd5e1;
-    --foreground: #0f172a;
-    --muted: #475569;
-    --subtle: #64748b;
-    --accent: #ea580c;
-    --success: #16a34a;
+    --surface-elevated: #ededf0;
+    --surface-hover: #e4e4e8;
+    --border: #e1e1e6;
+    --border-strong: #ceced6;
+    --foreground: #111215;
+    --muted: #5e6068;
+    --subtle: #82848e;
+    --accent: #ff5c65;
+    --success: #2ea069;
     --warning: #d97706;
     --danger: #dc2626;
 
