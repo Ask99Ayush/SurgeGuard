@@ -1,9 +1,10 @@
 {
   "uid": "surgeguard-overview",
-  "title": "SurgeGuard \u00b7 System health",
-  "description": "Top-level health of the queue, admission, backends and dependencies.",
+  "title": "SurgeGuard \u00b7 Overview & System Health",
+  "description": "Top-level operational overview of the SurgeGuard virtual waiting room, edge proxy, and backend origins.",
   "tags": [
-    "surgeguard"
+    "surgeguard",
+    "observability"
   ],
   "timezone": "browser",
   "schemaVersion": 39,
@@ -17,8 +18,20 @@
   "graphTooltip": 1,
   "panels": [
     {
+      "type": "row",
+      "title": "System Health & Capacity KPIs",
+      "collapsed": false,
+      "id": 1,
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 1
+      }
+    },
+    {
       "type": "stat",
-      "title": "Queue length",
+      "title": "Queue Depth",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -49,13 +62,13 @@
           "noValue": "no data",
           "color": {
             "mode": "fixed",
-            "fixedColor": "#ff5c65"
+            "fixedColor": "#ff9900"
           },
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
-                "color": "#ff5c65",
+                "color": "#ff9900",
                 "value": null
               }
             ]
@@ -63,10 +76,65 @@
         },
         "overrides": []
       },
-      "id": 1,
+      "id": 2,
       "gridPos": {
         "x": 0,
-        "y": 0,
+        "y": 1,
+        "w": 6,
+        "h": 4
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Admitted Active",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max(surgeguard_admitted_active)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": null,
+          "noValue": "no data",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#22c55e"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#22c55e",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "id": 3,
+      "gridPos": {
+        "x": 6,
+        "y": 1,
         "w": 6,
         "h": 4
       }
@@ -104,13 +172,13 @@
           "noValue": "no data",
           "color": {
             "mode": "fixed",
-            "fixedColor": "#43c98b"
+            "fixedColor": "#22c55e"
           },
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
-                "color": "#43c98b",
+                "color": "#22c55e",
                 "value": null
               }
             ]
@@ -118,17 +186,17 @@
         },
         "overrides": []
       },
-      "id": 2,
+      "id": 4,
       "gridPos": {
-        "x": 6,
-        "y": 0,
+        "x": 12,
+        "y": 1,
         "w": 6,
         "h": 4
       }
     },
     {
       "type": "stat",
-      "title": "Healthy backends",
+      "title": "Healthy Backends",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -159,21 +227,21 @@
           "noValue": "no data",
           "color": {
             "mode": "thresholds",
-            "fixedColor": "#43c98b"
+            "fixedColor": "#22c55e"
           },
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
-                "color": "#ff626b",
+                "color": "#ef4444",
                 "value": null
               },
               {
-                "color": "#f2b84b",
+                "color": "#f59e0b",
                 "value": 1
               },
               {
-                "color": "#43c98b",
+                "color": "#22c55e",
                 "value": 2
               }
             ]
@@ -181,76 +249,17 @@
         },
         "overrides": []
       },
-      "id": 3,
-      "gridPos": {
-        "x": 12,
-        "y": 0,
-        "w": 6,
-        "h": 4
-      }
-    },
-    {
-      "type": "stat",
-      "title": "Redis",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "max(redis_up{job=\"redis\"})",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          }
-        }
-      ],
-      "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "decimals": null,
-          "noValue": "no data",
-          "color": {
-            "mode": "thresholds",
-            "fixedColor": "#96979d"
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "#ff626b",
-                "value": null
-              },
-              {
-                "color": "#43c98b",
-                "value": 1
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "id": 4,
+      "id": 5,
       "gridPos": {
         "x": 18,
-        "y": 0,
+        "y": 1,
         "w": 6,
         "h": 4
       }
     },
     {
       "type": "stat",
-      "title": "Origin error ratio",
+      "title": "Origin Error Ratio",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -281,13 +290,13 @@
           "noValue": "no data",
           "color": {
             "mode": "fixed",
-            "fixedColor": "#ff626b"
+            "fixedColor": "#ef4444"
           },
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
-                "color": "#ff626b",
+                "color": "#ef4444",
                 "value": null
               }
             ]
@@ -295,17 +304,17 @@
         },
         "overrides": []
       },
-      "id": 5,
+      "id": 6,
       "gridPos": {
         "x": 0,
-        "y": 4,
+        "y": 5,
         "w": 6,
         "h": 4
       }
     },
     {
       "type": "stat",
-      "title": "Origin p95 latency",
+      "title": "Origin p95 Latency",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -336,13 +345,13 @@
           "noValue": "no data",
           "color": {
             "mode": "fixed",
-            "fixedColor": "#f2b84b"
+            "fixedColor": "#f59e0b"
           },
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
-                "color": "#f2b84b",
+                "color": "#f59e0b",
                 "value": null
               }
             ]
@@ -350,17 +359,17 @@
         },
         "overrides": []
       },
-      "id": 6,
+      "id": 7,
       "gridPos": {
         "x": 6,
-        "y": 4,
+        "y": 5,
         "w": 6,
         "h": 4
       }
     },
     {
       "type": "stat",
-      "title": "Worker is leader",
+      "title": "Redis Operational",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -368,7 +377,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "max(surgeguard_worker_is_leader)",
+          "expr": "max(redis_up{job=\"redis\"})",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -391,17 +400,17 @@
           "noValue": "no data",
           "color": {
             "mode": "thresholds",
-            "fixedColor": "#96979d"
+            "fixedColor": "#94a3b8"
           },
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
-                "color": "#ff626b",
+                "color": "#ef4444",
                 "value": null
               },
               {
-                "color": "#43c98b",
+                "color": "#22c55e",
                 "value": 1
               }
             ]
@@ -409,17 +418,17 @@
         },
         "overrides": []
       },
-      "id": 7,
+      "id": 8,
       "gridPos": {
         "x": 12,
-        "y": 4,
+        "y": 5,
         "w": 6,
         "h": 4
       }
     },
     {
       "type": "stat",
-      "title": "Scrape targets up",
+      "title": "Edge Requests / s",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -427,7 +436,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(up)",
+          "expr": "sum(rate(nginx_http_requests_total[1m]))",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -450,13 +459,13 @@
           "noValue": "no data",
           "color": {
             "mode": "fixed",
-            "fixedColor": "#43c98b"
+            "fixedColor": "#38bdf8"
           },
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
-                "color": "#43c98b",
+                "color": "#38bdf8",
                 "value": null
               }
             ]
@@ -464,73 +473,29 @@
         },
         "overrides": []
       },
-      "id": 8,
+      "id": 9,
       "gridPos": {
         "x": 18,
-        "y": 4,
+        "y": 5,
         "w": 6,
         "h": 4
       }
     },
     {
-      "type": "timeseries",
-      "title": "Queue length",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "max(surgeguard_queue_length)",
-          "legendFormat": "waiting",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          }
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "noValue": "no data",
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "#ff5c65"
-          },
-          "custom": {
-            "lineWidth": 2,
-            "fillOpacity": 12,
-            "gradientMode": "opacity",
-            "showPoints": "never",
-            "spanNulls": false,
-            "stacking": {
-              "mode": "none"
-            }
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom"
-        },
-        "tooltip": {
-          "mode": "multi"
-        }
-      },
-      "id": 9,
+      "type": "row",
+      "title": "Traffic Throughput & Admissions",
+      "collapsed": false,
+      "id": 10,
       "gridPos": {
         "x": 0,
-        "y": 8,
-        "w": 12,
-        "h": 8
+        "y": 9,
+        "w": 24,
+        "h": 1
       }
     },
     {
       "type": "timeseries",
-      "title": "Admission rate",
+      "title": "Edge vs Origin Throughput",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -538,8 +503,8 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(rate(surgeguard_admissions_total[1m]))",
-          "legendFormat": "admitted/s",
+          "expr": "sum(rate(nginx_http_requests_total[1m]))",
+          "legendFormat": "edge requests (nginx)",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -547,8 +512,8 @@
         },
         {
           "refId": "B",
-          "expr": "max(surgeguard_admission_rate_effective)",
-          "legendFormat": "effective target/s",
+          "expr": "sum(rate(demo_requests_total[1m]))",
+          "legendFormat": "admitted origin requests",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -584,17 +549,363 @@
           "mode": "multi"
         }
       },
-      "id": 10,
+      "id": 11,
       "gridPos": {
-        "x": 12,
-        "y": 8,
+        "x": 0,
+        "y": 10,
         "w": 12,
         "h": 8
       }
     },
     {
+      "type": "timeseries",
+      "title": "Admission Rate vs Target",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(surgeguard_admissions_total[1m]))",
+          "legendFormat": "measured admitted/s",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        },
+        {
+          "refId": "B",
+          "expr": "max(surgeguard_admission_rate_effective)",
+          "legendFormat": "effective target/s",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        },
+        {
+          "refId": "C",
+          "expr": "max(surgeguard_admission_rate_configured)",
+          "legendFormat": "configured target/s",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "no data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "gradientMode": "opacity",
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "mode": "none"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "id": 12,
+      "gridPos": {
+        "x": 12,
+        "y": 10,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Queue Depth (Waiting Visitors)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max(surgeguard_queue_length)",
+          "legendFormat": "visitors in line",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "no data",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#ff9900"
+          },
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "gradientMode": "opacity",
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "mode": "none"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "id": 13,
+      "gridPos": {
+        "x": 0,
+        "y": 18,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Active Admitted (Holding Tokens)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max(surgeguard_admitted_active)",
+          "legendFormat": "active tokens",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "no data",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#22c55e"
+          },
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "gradientMode": "opacity",
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "mode": "none"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "id": 14,
+      "gridPos": {
+        "x": 12,
+        "y": 18,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "type": "row",
+      "title": "Latency Distribution & Error Tracking",
+      "collapsed": false,
+      "id": 15,
+      "gridPos": {
+        "x": 0,
+        "y": 26,
+        "w": 24,
+        "h": 1
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Origin Latency Percentiles",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.50, sum by (le) (rate(demo_request_duration_seconds_bucket[1m])))",
+          "legendFormat": "p50 median",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        },
+        {
+          "refId": "B",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(demo_request_duration_seconds_bucket[1m])))",
+          "legendFormat": "p95",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        },
+        {
+          "refId": "C",
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(demo_request_duration_seconds_bucket[1m])))",
+          "legendFormat": "p99 tail",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "noValue": "no data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "gradientMode": "opacity",
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "mode": "none"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "id": 16,
+      "gridPos": {
+        "x": 0,
+        "y": 27,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Queue Wait Time (Join \u2192 Admission)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.5, sum by (le) (rate(surgeguard_queue_wait_seconds_bucket[5m])))",
+          "legendFormat": "p50",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        },
+        {
+          "refId": "B",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(surgeguard_queue_wait_seconds_bucket[5m])))",
+          "legendFormat": "p95",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "noValue": "no data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "gradientMode": "opacity",
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "mode": "none"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "id": 17,
+      "gridPos": {
+        "x": 12,
+        "y": 27,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "type": "row",
+      "title": "Scrape Targets & Alert States",
+      "collapsed": false,
+      "id": 18,
+      "gridPos": {
+        "x": 0,
+        "y": 35,
+        "w": 24,
+        "h": 1
+      }
+    },
+    {
       "type": "table",
-      "title": "Scrape targets",
+      "title": "Scrape Targets Health",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -617,17 +928,17 @@
         },
         "overrides": []
       },
-      "id": 11,
+      "id": 19,
       "gridPos": {
         "x": 0,
-        "y": 16,
-        "w": 24,
+        "y": 36,
+        "w": 12,
         "h": 6
       }
     },
     {
       "type": "alertlist",
-      "title": "Alert rules (Prometheus)",
+      "title": "Active Operational Alerts",
       "options": {
         "alertListOptions": {
           "showOptions": "current"
@@ -651,11 +962,11 @@
           }
         }
       ],
-      "id": 12,
+      "id": 20,
       "gridPos": {
-        "x": 0,
-        "y": 22,
-        "w": 24,
+        "x": 12,
+        "y": 36,
+        "w": 12,
         "h": 6
       }
     }

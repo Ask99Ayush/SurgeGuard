@@ -1,9 +1,10 @@
 {
   "uid": "surgeguard-latency",
-  "title": "SurgeGuard \u00b7 Latency and errors",
-  "description": "Latency distributions and error rates at the origin and in SurgeGuard itself.",
+  "title": "SurgeGuard \u00b7 Latency & Error Distribution",
+  "description": "Latency distributions, percentile curves, and response status codes.",
   "tags": [
-    "surgeguard"
+    "surgeguard",
+    "observability"
   ],
   "timezone": "browser",
   "schemaVersion": 39,
@@ -17,8 +18,20 @@
   "graphTooltip": 1,
   "panels": [
     {
-      "type": "timeseries",
-      "title": "Origin latency percentiles",
+      "type": "row",
+      "title": "Origin Execution Duration",
+      "collapsed": false,
+      "id": 1,
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 1
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Median Latency (p50)",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -26,8 +39,228 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "histogram_quantile(0.5, sum by (le) (rate(demo_request_duration_seconds_bucket[1m])))",
-          "legendFormat": "p50",
+          "expr": "histogram_quantile(0.50, sum by (le) (rate(demo_request_duration_seconds_bucket[1m])))",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "decimals": 3,
+          "noValue": "no data",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#22c55e"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#22c55e",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "id": 2,
+      "gridPos": {
+        "x": 0,
+        "y": 1,
+        "w": 6,
+        "h": 4
+      }
+    },
+    {
+      "type": "stat",
+      "title": "p95 Latency",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(demo_request_duration_seconds_bucket[1m])))",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "decimals": 3,
+          "noValue": "no data",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#f59e0b"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#f59e0b",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "id": 3,
+      "gridPos": {
+        "x": 6,
+        "y": 1,
+        "w": 6,
+        "h": 4
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Tail Latency (p99)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(demo_request_duration_seconds_bucket[1m])))",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "decimals": 3,
+          "noValue": "no data",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#ef4444"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#ef4444",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "id": 4,
+      "gridPos": {
+        "x": 12,
+        "y": 1,
+        "w": 6,
+        "h": 4
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Origin Error Ratio",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(demo_requests_total{status=~\"5..\"}[1m])) / sum(rate(demo_requests_total[1m]))",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "decimals": 1,
+          "noValue": "no data",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#ef4444"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#ef4444",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "id": 5,
+      "gridPos": {
+        "x": 18,
+        "y": 1,
+        "w": 6,
+        "h": 4
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Origin Latency Distributions",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.50, sum by (le) (rate(demo_request_duration_seconds_bucket[1m])))",
+          "legendFormat": "p50 median",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -36,7 +269,7 @@
         {
           "refId": "B",
           "expr": "histogram_quantile(0.95, sum by (le) (rate(demo_request_duration_seconds_bucket[1m])))",
-          "legendFormat": "p95",
+          "legendFormat": "p95 percentile",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -45,7 +278,7 @@
         {
           "refId": "C",
           "expr": "histogram_quantile(0.99, sum by (le) (rate(demo_request_duration_seconds_bucket[1m])))",
-          "legendFormat": "p99",
+          "legendFormat": "p99 tail latency",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -81,17 +314,17 @@
           "mode": "multi"
         }
       },
-      "id": 1,
+      "id": 6,
       "gridPos": {
         "x": 0,
-        "y": 0,
+        "y": 5,
         "w": 12,
         "h": 8
       }
     },
     {
       "type": "timeseries",
-      "title": "Origin responses by status",
+      "title": "Origin Responses by Status Class",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -100,7 +333,7 @@
         {
           "refId": "A",
           "expr": "sum by (status) (rate(demo_requests_total[1m]))",
-          "legendFormat": "{{status}}",
+          "legendFormat": "status {{status}}",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -113,7 +346,7 @@
           "noValue": "no data",
           "color": {
             "mode": "fixed",
-            "fixedColor": "#ff5c65"
+            "fixedColor": "#ff9900"
           },
           "custom": {
             "lineWidth": 2,
@@ -137,73 +370,29 @@
           "mode": "multi"
         }
       },
-      "id": 2,
+      "id": 7,
       "gridPos": {
         "x": 12,
-        "y": 0,
+        "y": 5,
         "w": 12,
         "h": 8
       }
     },
     {
-      "type": "timeseries",
-      "title": "Origin error ratio",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sum(rate(demo_requests_total{status=~\"5..\"}[1m])) / sum(rate(demo_requests_total[1m]))",
-          "legendFormat": "5xx share",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          }
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percentunit",
-          "noValue": "no data",
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "#ff626b"
-          },
-          "custom": {
-            "lineWidth": 2,
-            "fillOpacity": 12,
-            "gradientMode": "opacity",
-            "showPoints": "never",
-            "spanNulls": false,
-            "stacking": {
-              "mode": "none"
-            }
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom"
-        },
-        "tooltip": {
-          "mode": "multi"
-        }
-      },
-      "id": 3,
+      "type": "row",
+      "title": "API Latency & Response Profiles",
+      "collapsed": false,
+      "id": 8,
       "gridPos": {
         "x": 0,
-        "y": 8,
-        "w": 12,
-        "h": 8
+        "y": 13,
+        "w": 24,
+        "h": 1
       }
     },
     {
       "type": "timeseries",
-      "title": "SurgeGuard API latency p95 by route",
+      "title": "SurgeGuard API Latency (p95 by Route)",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -225,7 +414,7 @@
           "noValue": "no data",
           "color": {
             "mode": "fixed",
-            "fixedColor": "#ff5c65"
+            "fixedColor": "#ff9900"
           },
           "custom": {
             "lineWidth": 2,
@@ -249,17 +438,17 @@
           "mode": "multi"
         }
       },
-      "id": 4,
+      "id": 9,
       "gridPos": {
-        "x": 12,
-        "y": 8,
+        "x": 0,
+        "y": 14,
         "w": 12,
         "h": 8
       }
     },
     {
       "type": "timeseries",
-      "title": "SurgeGuard API responses by status",
+      "title": "SurgeGuard API Responses by Status",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -281,7 +470,7 @@
           "noValue": "no data",
           "color": {
             "mode": "fixed",
-            "fixedColor": "#ff5c65"
+            "fixedColor": "#ff9900"
           },
           "custom": {
             "lineWidth": 2,
@@ -305,66 +494,10 @@
           "mode": "multi"
         }
       },
-      "id": 5,
-      "gridPos": {
-        "x": 0,
-        "y": 16,
-        "w": 12,
-        "h": 8
-      }
-    },
-    {
-      "type": "timeseries",
-      "title": "Redis PING latency p95 (worker)",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "histogram_quantile(0.95, sum by (le) (rate(surgeguard_redis_ping_seconds_bucket[1m])))",
-          "legendFormat": "p95",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          }
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "s",
-          "noValue": "no data",
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "#96979d"
-          },
-          "custom": {
-            "lineWidth": 2,
-            "fillOpacity": 12,
-            "gradientMode": "opacity",
-            "showPoints": "never",
-            "spanNulls": false,
-            "stacking": {
-              "mode": "none"
-            }
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom"
-        },
-        "tooltip": {
-          "mode": "multi"
-        }
-      },
-      "id": 6,
+      "id": 10,
       "gridPos": {
         "x": 12,
-        "y": 16,
+        "y": 14,
         "w": 12,
         "h": 8
       }

@@ -88,6 +88,12 @@ server {
         proxy_pass http://sg_frontend;
     }
 
+    location ^~ /images/ {
+        include /etc/nginx/snippets/proxy-headers.conf;
+        include /etc/nginx/snippets/security-headers.conf;
+        proxy_pass http://sg_frontend;
+    }
+
     # ---- origin static assets: public, cacheable, cookies stripped in both directions -----
     location ^~ /static/ {
         limit_req zone=sg_site burst=${PROXY_RATE_LIMIT_BURST} nodelay;
