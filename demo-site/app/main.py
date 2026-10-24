@@ -19,7 +19,13 @@ import time
 
 from fastapi import FastAPI, Form, Request, Response
 from fastapi.responses import HTMLResponse, PlainTextResponse
-from prometheus_client import CONTENT_TYPE_LATEST, Counter, Gauge, Histogram, generate_latest
+from prometheus_client import (
+    CONTENT_TYPE_LATEST,
+    Counter,
+    Gauge,
+    Histogram,
+    generate_latest,
+)
 
 
 def _env_int(name: str) -> int:
@@ -37,37 +43,288 @@ ORIGIN_KEY = os.environ.get("ORIGIN_SHARED_SECRET", "")
 if len(ORIGIN_KEY) < 16:
     raise SystemExit("demo-site: ORIGIN_SHARED_SECRET must be set (>= 16 chars)")
 
-REQUESTS = Counter("demo_requests_total", "Requests handled by the demo origin", ["origin", "status"])
+REQUESTS = Counter(
+    "demo_requests_total", "Requests handled by the demo origin", ["origin", "status"]
+)
 LATENCY = Histogram(
-    "demo_request_duration_seconds", "End-to-end latency inside the demo origin", ["origin"],
+    "demo_request_duration_seconds",
+    "End-to-end latency inside the demo origin",
+    ["origin"],
     buckets=(0.05, 0.1, 0.2, 0.3, 0.5, 0.75, 1, 1.5, 2, 3, 5, 10),
 )
 INFLIGHT = Gauge("demo_inflight_requests", "Requests currently doing work", ["origin"])
 PENDING = Gauge("demo_pending_requests", "Requests waiting for a work slot", ["origin"])
-OVERLOAD = Counter("demo_overload_rejections_total", "Requests rejected because the origin was saturated", ["origin"])
-FORBIDDEN = Counter("demo_forbidden_total", "Requests without a valid origin key", ["origin"])
+OVERLOAD = Counter(
+    "demo_overload_rejections_total",
+    "Requests rejected because the origin was saturated",
+    ["origin"],
+)
+FORBIDDEN = Counter(
+    "demo_forbidden_total", "Requests without a valid origin key", ["origin"]
+)
 
 app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
 slots = asyncio.Semaphore(MAX_CONCURRENCY)
 OPEN_PATHS = {"/health", "/metrics"}
 
 STYLE = """
-:root{--bg:#f7f7f8;--fg:#1d1d22;--muted:#666a73;--line:#dcdde1;--brand:#2453a6}
-*{box-sizing:border-box}body{margin:0;font:16px/1.5 system-ui,sans-serif;background:var(--bg);color:var(--fg)}
-header{background:var(--brand);color:#fff;padding:16px 24px}main{max-width:720px;margin:32px auto;padding:0 16px}
-.card{background:#fff;border:1px solid var(--line);border-radius:8px;padding:24px;margin-bottom:16px}
-label{display:block;margin-bottom:8px;font-weight:600}input{width:100%;padding:10px;border:1px solid var(--line);border-radius:6px;font:inherit}
-button{margin-top:12px;padding:10px 16px;border:0;border-radius:6px;background:var(--brand);color:#fff;font:inherit;cursor:pointer}
-small{color:var(--muted)}table{width:100%;border-collapse:collapse}td{padding:6px 0;border-bottom:1px solid var(--line)}
+:root {
+  --bg: #0b0f19;
+  --surface: #111827;
+  --surface-elevated: #1f2937;
+  --surface-hover: #374151;
+  --line: #232f3e;
+  --line-strong: #374151;
+  --fg: #f9fafb;
+  --muted: #9ca3af;
+  --subtle: #6b7280;
+  --accent: #ff9900;
+  --accent-hover: #ec8a00;
+  --success: #10b981;
+  --card-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #f3f4f6;
+    --surface: #ffffff;
+    --surface-elevated: #f9fafb;
+    --surface-hover: #f3f4f6;
+    --line: #e5e7eb;
+    --line-strong: #d1d5db;
+    --fg: #111827;
+    --muted: #4b5563;
+    --subtle: #9ca3af;
+    --accent: #ea580c;
+    --accent-hover: #c2410c;
+    --success: #059669;
+    --card-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+  }
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font: 15px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+header {
+  background: #0f172a;
+  color: #fff;
+  border-bottom: 2px solid var(--accent);
+  padding: 16px 24px;
+}
+.header-inner {
+  max-width: 840px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+  font-size: 17px;
+  letter-spacing: -0.02em;
+}
+.cloud-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 153, 0, 0.15);
+  color: #ffb84d;
+  border: 1px solid rgba(255, 153, 0, 0.3);
+  padding: 3px 9px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #94a3b8;
+}
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #10b981;
+}
+
+main {
+  max-width: 840px;
+  width: 100%;
+  margin: 36px auto;
+  padding: 0 20px;
+  flex: 1;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 32px;
+  box-shadow: var(--card-shadow);
+  margin-bottom: 24px;
+}
+
+h1 {
+  margin: 0 0 8px 0;
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+.subtitle {
+  color: var(--muted);
+  font-size: 14px;
+  margin: 0 0 24px 0;
+}
+
+.banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  color: var(--success);
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  margin-bottom: 20px;
+}
+
+label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fg);
+}
+input {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font: inherit;
+  background: var(--surface-elevated);
+  color: var(--fg);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(255, 153, 0, 0.2);
+}
+
+button {
+  margin-top: 16px;
+  padding: 12px 20px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #111;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s, transform 0.1s;
+}
+button:hover {
+  background: var(--accent-hover);
+}
+button:active {
+  transform: translateY(1px);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 20px 0;
+}
+th {
+  text-align: left;
+  padding: 10px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--line);
+}
+td {
+  padding: 12px;
+  border-bottom: 1px solid var(--line);
+  font-size: 14px;
+}
+tr:last-child td {
+  border-bottom: none;
+}
+.badge-pass {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 600;
+  background: rgba(16, 185, 129, 0.15);
+  color: var(--success);
+}
+
+a.action-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 500;
+  font-size: 14px;
+  margin-top: 12px;
+}
+a.action-link:hover {
+  text-decoration: underline;
+}
+
+footer {
+  border-top: 1px solid var(--line);
+  padding: 20px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--subtle);
+  background: var(--surface);
+}
 """
 
 
 def page(title: str, body: str) -> str:
     return f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1"><title>{title}</title>
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>{title} &middot; Exam Results Portal</title>
 <link rel="stylesheet" href="/static/site.css"></head><body>
-<header><strong>State Examination Board</strong> &middot; Results Portal (demo origin)</header>
-<main>{body}<small>Served by {html.escape(INSTANCE)}. This is a deliberately fragile demo application.</small></main>
+<header>
+  <div class="header-inner">
+    <div class="brand">
+      <span>State Examination Board</span>
+      <span class="cloud-badge">Cloud Results</span>
+    </div>
+    <div class="status-pill">
+      <span class="dot"></span>
+      <span>Origin Node: <strong>{html.escape(INSTANCE)}</strong></span>
+    </div>
+  </div>
+</header>
+<main>{body}</main>
+<footer>
+  Served by <strong>{html.escape(INSTANCE)}</strong> &middot; Deliberately fragile origin under concurrency governance.
+</footer>
 </body></html>"""
 
 
@@ -78,7 +335,9 @@ async def guard(request: Request, call_next):  # type: ignore[no-untyped-def]
     provided = request.headers.get("x-origin-key", "")
     if not hmac.compare_digest(provided.encode(), ORIGIN_KEY.encode()):
         FORBIDDEN.labels(INSTANCE).inc()
-        return PlainTextResponse("Direct access to the origin is not allowed.", status_code=403)
+        return PlainTextResponse(
+            "Direct access to the origin is not allowed.", status_code=403
+        )
     if request.url.path.startswith("/static/"):
         return await call_next(request)
 
@@ -91,13 +350,16 @@ async def guard(request: Request, call_next):  # type: ignore[no-untyped-def]
         OVERLOAD.labels(INSTANCE).inc()
         REQUESTS.labels(INSTANCE, "503").inc()
         LATENCY.labels(INSTANCE).observe(time.perf_counter() - started)
-        return PlainTextResponse("Service overloaded. Please try again.", status_code=503,
-                                 headers={"X-Served-By": INSTANCE})
+        return PlainTextResponse(
+            "Service overloaded. Please try again.",
+            status_code=503,
+            headers={"X-Served-By": INSTANCE},
+        )
     PENDING.labels(INSTANCE).dec()
     INFLIGHT.labels(INSTANCE).inc()
     try:
         # Simulated slow work (e.g. a heavy database query), +-20% jitter.
-        await asyncio.sleep(WORK_MS / 1000 * random.uniform(0.8, 1.2))  # noqa: S311
+        await asyncio.sleep(WORK_MS / 1000 * random.uniform(0.8, 1.2))
         response = await call_next(request)
     finally:
         INFLIGHT.labels(INSTANCE).dec()
@@ -120,29 +382,62 @@ async def metrics() -> Response:
 
 @app.get("/static/site.css")
 async def stylesheet() -> Response:
-    return Response(STYLE, media_type="text/css", headers={"Cache-Control": "public, max-age=300"})
+    return Response(
+        STYLE, media_type="text/css", headers={"Cache-Control": "public, max-age=300"}
+    )
 
 
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request) -> HTMLResponse:
     visitor = request.headers.get("x-sg-visitor", "")
-    note = f"<p><small>Admitted by SurgeGuard (visitor {html.escape(visitor[:8])}…)</small></p>" if visitor else ""
-    body = f"""<div class="card"><h1>Class XII Results 2026</h1>{note}
-<form method="post" action="/results"><label for="roll">Roll number</label>
-<input id="roll" name="roll" inputmode="numeric" pattern="[0-9]{{6,10}}" required placeholder="e.g. 20261234">
-<button type="submit">View result</button></form></div>"""
-    return HTMLResponse(page("Results Portal", body), headers={"Cache-Control": "private, no-store"})
+    note = (
+        f"""<div class="banner">
+      <span>Admitted by SurgeGuard &middot; Verified Visitor Token <code>{html.escape(visitor[:8])}&hellip;</code></span>
+    </div>"""
+        if visitor
+        else ""
+    )
+    body = f"""<div class="card">
+      <h1>Class XII Results 2026</h1>
+      <p class="subtitle">Higher Secondary Certification Board &middot; Public Results Portal</p>
+      {note}
+      <form method="post" action="/results">
+        <label for="roll">Student Roll number</label>
+        <input id="roll" name="roll" inputmode="numeric" pattern="[0-9]{{6,10}}" required placeholder="Enter 6-10 digit roll number, e.g. 20261234">
+        <button type="submit">View result</button>
+      </form>
+    </div>"""
+    return HTMLResponse(
+        page("Results Portal", body), headers={"Cache-Control": "private, no-store"}
+    )
 
 
 @app.post("/results", response_class=HTMLResponse)
-async def results(roll: str = Form(..., min_length=6, max_length=10, pattern=r"^[0-9]+$")) -> HTMLResponse:
+async def results(
+    roll: str = Form(..., min_length=6, max_length=10, pattern=r"^[0-9]+$"),
+) -> HTMLResponse:
     # Clearly synthetic: the "result" is derived from the roll number so it is repeatable.
     seed = sum(int(c) for c in roll)
     rows = "".join(
-        f"<tr><td>{subject}</td><td>{60 + (seed * (i + 3)) % 40}</td></tr>"
-        for i, subject in enumerate(["Mathematics", "Physics", "Chemistry", "English", "Computer Science"])
+        f"<tr><td><strong>{subject}</strong></td><td>{60 + (seed * (i + 3)) % 40} / 100</td><td><span class='badge-pass'>PASS</span></td></tr>"
+        for i, subject in enumerate(
+            ["Mathematics", "Physics", "Chemistry", "English", "Computer Science"]
+        )
     )
-    body = f"""<div class="card"><h1>Result for roll {html.escape(roll)}</h1>
-<p><small>Synthetic demo data.</small></p><table>{rows}</table>
-<p><a href="/">Check another</a></p></div>"""
-    return HTMLResponse(page("Your result", body), headers={"Cache-Control": "private, no-store"})
+    body = f"""<div class="card">
+      <h1>Result for roll {html.escape(roll)}</h1>
+      <p class="subtitle">Official Statement of Marks &middot; Certified Record</p>
+      <div class="banner">
+        <span>Synthetic demo data generated deterministically for testing and verification.</span>
+      </div>
+      <table>
+        <thead>
+          <tr><th>Subject</th><th>Marks Obtained</th><th>Grade Status</th></tr>
+        </thead>
+        <tbody>{rows}</tbody>
+      </table>
+      <p><a href="/" class="action-link">&larr; Check another roll number</a></p>
+    </div>"""
+    return HTMLResponse(
+        page("Your result", body), headers={"Cache-Control": "private, no-store"}
+    )
