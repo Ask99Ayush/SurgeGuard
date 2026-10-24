@@ -8,6 +8,7 @@ import { RoleProvider } from "@/components/admin/RoleContext";
 import type { Overview } from "@/components/admin/types";
 import { Wordmark } from "@/components/Wordmark";
 import { Badge, cn, type Tone } from "@/components/ui/primitives";
+import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { usePolling } from "@/hooks/usePolling";
 import { fetchJson } from "@/lib/client";
 import type { Role } from "@/lib/session";
@@ -142,6 +143,7 @@ export function AdminShell({ username, role, children }: { username: string; rol
                   <span className="hidden lg:inline">{username}</span>
                   <span className="sr-only">Signed in as {username}</span>
                 </span>
+                <ThemeToggle compact className="hidden sm:inline-flex" />
                 <button
                   type="button"
                   onClick={logout}
@@ -179,6 +181,10 @@ export function AdminShell({ username, role, children }: { username: string; rol
                     </li>
                   ))}
                 </ul>
+                <div className="mt-2 flex items-center justify-between border-t border-border px-3 pt-2">
+                  <span className="text-xs text-muted">Theme</span>
+                  <ThemeToggle compact />
+                </div>
                 <p className="px-3 pb-1 pt-2 text-xs text-subtle">{health.label}</p>
               </nav>
             ) : null}

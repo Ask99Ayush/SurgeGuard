@@ -5,6 +5,7 @@ import { RangeSelect } from "@/components/admin/RangeSelect";
 import { StatTile } from "@/components/admin/StatTile";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { StateView } from "./StateView";
+import { ThemeToggle } from "./ThemeToggle";
 
 describe("StateView", () => {
   it.each([
@@ -83,5 +84,29 @@ describe("RangeSelect", () => {
     expect(current).toHaveAttribute("aria-checked", "true");
     fireEvent.keyDown(current, { key: "ArrowRight" });
     expect(onChange).toHaveBeenCalledWith("6h");
+  });
+});
+
+describe("ThemeToggle", () => {
+  it("renders theme options and allows switching between light, dark, and system", async () => {
+    render(<ThemeToggle />);
+    const group = screen.getByRole("group", { name: /color theme/i });
+    expect(group).toBeInTheDocument();
+
+    const lightBtn = screen.getByTitle("Light theme");
+    const darkBtn = screen.getByTitle("Dark theme");
+    const sysBtn = screen.getByTitle("System theme");
+
+    expect(lightBtn).toBeInTheDocument();
+    expect(darkBtn).toBeInTheDocument();
+    expect(sysBtn).toBeInTheDocument();
+
+    await userEvent.click(lightBtn);
+    expect(lightBtn).toHaveAttribute("aria-pressed", "true");
+    expect(localStorage.getItem("surgeguard-theme")).toBe("light");
+
+    await userEvent.click(darkBtn);
+    expect(darkBtn).toHaveAttribute("aria-pressed", "true");
+    expect(localStorage.getItem("surgeguard-theme")).toBe("dark");
   });
 });
