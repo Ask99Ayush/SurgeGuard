@@ -69,35 +69,35 @@ OPEN_PATHS = {"/health", "/metrics"}
 
 STYLE = """
 :root {
-  --bg: #0b0f19;
-  --surface: #111827;
-  --surface-elevated: #1f2937;
-  --surface-hover: #374151;
-  --line: #232f3e;
-  --line-strong: #374151;
-  --fg: #f9fafb;
-  --muted: #9ca3af;
-  --subtle: #6b7280;
-  --accent: #ff9900;
-  --accent-hover: #ec8a00;
-  --success: #10b981;
+  --bg: #08090b;
+  --surface: #101113;
+  --surface-elevated: #17181b;
+  --surface-hover: #1c1d21;
+  --line: #292a2e;
+  --line-strong: #3a3b41;
+  --fg: #f5f5f6;
+  --muted: #a3a4aa;
+  --subtle: #8a8b91;
+  --accent: #ff5c65;
+  --accent-hover: #ff4752;
+  --success: #43c98b;
   --card-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
 }
 
 @media (prefers-color-scheme: light) {
   :root {
-    --bg: #f3f4f6;
+    --bg: #f4f4f6;
     --surface: #ffffff;
-    --surface-elevated: #f9fafb;
-    --surface-hover: #f3f4f6;
-    --line: #e5e7eb;
-    --line-strong: #d1d5db;
-    --fg: #111827;
-    --muted: #4b5563;
-    --subtle: #9ca3af;
-    --accent: #ea580c;
-    --accent-hover: #c2410c;
-    --success: #059669;
+    --surface-elevated: #ededf0;
+    --surface-hover: #e4e4e8;
+    --line: #e1e1e6;
+    --line-strong: #ceced6;
+    --fg: #111215;
+    --muted: #5e6068;
+    --subtle: #82848e;
+    --accent: #ff5c65;
+    --accent-hover: #ff4752;
+    --success: #2ea069;
     --card-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
   }
 }
@@ -114,8 +114,8 @@ body {
 }
 
 header {
-  background: #0f172a;
-  color: #fff;
+  background: var(--surface);
+  color: var(--fg);
   border-bottom: 2px solid var(--accent);
   padding: 16px 24px;
 }
@@ -140,9 +140,9 @@ header {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: rgba(255, 153, 0, 0.15);
-  color: #ffb84d;
-  border: 1px solid rgba(255, 153, 0, 0.3);
+  background: rgba(255, 92, 101, 0.15);
+  color: var(--accent);
+  border: 1px solid rgba(255, 92, 101, 0.3);
   padding: 3px 9px;
   border-radius: 9999px;
   font-size: 11px;
