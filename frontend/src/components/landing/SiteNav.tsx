@@ -17,10 +17,10 @@ const links = [
 
 export function SiteNav() {
   return (
-    <header className="sticky top-0 z-40 px-4 pt-4 sm:px-6">
+    <header className="sticky top-0 z-40 px-3 pt-3 sm:px-5">
       <nav
         aria-label="Primary"
-        className="mx-auto flex h-16 max-w-7xl items-center justify-between rounded-2xl border border-border bg-surface/95 px-4 shadow-[var(--shadow-pop)] backdrop-blur-md sm:px-6"
+        className="mx-auto flex h-14 max-w-7xl items-center justify-between rounded-2xl border border-border bg-surface px-3 shadow-[var(--shadow-pop)] sm:px-4"
       >
         <div className="flex items-center gap-3">
           <Link href="/" aria-label="SurgeGuard home" className="rounded-lg">
