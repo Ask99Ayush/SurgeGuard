@@ -1,40 +1,42 @@
 {
   "uid": "surgeguard-resources",
-  "title": "SurgeGuard \u00b7 Infrastructure & Resources",
-  "description": "Redis memory utilization, command throughput, worker loop cadence, and container infrastructure health.",
+  "title": "SurgeGuard \u00b7 Infrastructure",
+  "description": "Redis memory and throughput, worker heartbeat, and backend probe latency.",
   "tags": [
     "surgeguard",
-    "observability",
-    "production",
-    "cloud-security"
+    "observability"
   ],
   "timezone": "browser",
   "schemaVersion": 39,
-  "version": 2,
-  "refresh": "5s",
+  "version": 3,
+  "refresh": "10s",
   "time": {
-    "from": "now-15m",
+    "from": "now-30m",
     "to": "now"
   },
   "editable": false,
   "graphTooltip": 1,
   "panels": [
     {
-      "type": "row",
-      "title": "Redis Key-Value Telemetry & Memory",
-      "collapsed": false,
+      "type": "text",
+      "title": "",
+      "transparent": true,
+      "options": {
+        "content": "## Infrastructure \u2014 Redis, admission worker, and platform dependencies\n\n| [Edge & Traffic](/grafana/d/surgeguard-backends?{__url_time_range}) | [Queue & Tokens](/grafana/d/surgeguard-queue?{__url_time_range}) | [Infrastructure](/grafana/d/surgeguard-resources?{__url_time_range}) | [Latency & 5xx](/grafana/d/surgeguard-latency?{__url_time_range}) | [Reliability & Chaos](/grafana/d/surgeguard-failure?{__url_time_range}) | [Overview](/grafana/d/surgeguard-overview?{__url_time_range}) |",
+        "mode": "markdown"
+      },
       "id": 1,
       "gridPos": {
         "x": 0,
         "y": 0,
         "w": 24,
-        "h": 1
+        "h": 2
       }
     },
     {
       "type": "stat",
-      "title": "Redis Available",
-      "description": "Operational status of Redis cluster instance",
+      "title": "Redis status",
+      "description": "1 = Redis is up and the exporter is reachable.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -42,7 +44,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "max(redis_up{job=\"redis\"})",
+          "expr": "max(redis_up{job=\"redis\"}) or vector(0)",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -50,7 +52,7 @@
         }
       ],
       "options": {
-        "colorMode": "value",
+        "colorMode": "background",
         "graphMode": "area",
         "textMode": "auto",
         "orientation": "auto",
@@ -66,10 +68,9 @@
         "defaults": {
           "unit": "short",
           "decimals": null,
-          "noValue": "no data",
+          "noValue": "\u2014",
           "color": {
-            "mode": "thresholds",
-            "fixedColor": "#94a3b8"
+            "mode": "thresholds"
           },
           "thresholds": {
             "mode": "absolute",
@@ -83,22 +84,23 @@
                 "value": 1
               }
             ]
-          }
+          },
+          "mappings": []
         },
         "overrides": []
       },
       "id": 2,
       "gridPos": {
         "x": 0,
-        "y": 1,
+        "y": 2,
         "w": 6,
-        "h": 4
+        "h": 5
       }
     },
     {
       "type": "stat",
-      "title": "Redis Memory Used",
-      "description": "Total memory allocated to Redis data structures",
+      "title": "Redis memory",
+      "description": "Memory allocated by Redis for data structures.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -106,7 +108,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "max(redis_memory_used_bytes{job=\"redis\"})",
+          "expr": "max(redis_memory_used_bytes{job=\"redis\"}) or vector(0)",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -114,7 +116,7 @@
         }
       ],
       "options": {
-        "colorMode": "value",
+        "colorMode": "background",
         "graphMode": "area",
         "textMode": "auto",
         "orientation": "auto",
@@ -129,36 +131,36 @@
       "fieldConfig": {
         "defaults": {
           "unit": "bytes",
-          "decimals": null,
-          "noValue": "no data",
+          "decimals": 1,
+          "noValue": "\u2014",
           "color": {
-            "mode": "fixed",
-            "fixedColor": "#3b82f6"
+            "mode": "thresholds"
           },
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
-                "color": "#3b82f6",
+                "color": "#10b981",
                 "value": null
               }
             ]
-          }
+          },
+          "mappings": []
         },
         "overrides": []
       },
       "id": 3,
       "gridPos": {
         "x": 6,
-        "y": 1,
+        "y": 2,
         "w": 6,
-        "h": 4
+        "h": 5
       }
     },
     {
       "type": "stat",
-      "title": "Connected Clients",
-      "description": "Active client socket connections to Redis",
+      "title": "Worker leader",
+      "description": "1 = A worker holds the distributed leader lock.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -166,7 +168,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "max(redis_connected_clients{job=\"redis\"})",
+          "expr": "max(surgeguard_worker_is_leader) or vector(0)",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -174,7 +176,7 @@
         }
       ],
       "options": {
-        "colorMode": "value",
+        "colorMode": "background",
         "graphMode": "area",
         "textMode": "auto",
         "orientation": "auto",
@@ -190,466 +192,9 @@
         "defaults": {
           "unit": "short",
           "decimals": null,
-          "noValue": "no data",
+          "noValue": "\u2014",
           "color": {
-            "mode": "fixed",
-            "fixedColor": "#10b981"
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "#10b981",
-                "value": null
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "id": 4,
-      "gridPos": {
-        "x": 12,
-        "y": 1,
-        "w": 6,
-        "h": 4
-      }
-    },
-    {
-      "type": "stat",
-      "title": "Commands / s",
-      "description": "Operations executed per second against Redis",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sum(rate(redis_commands_total{job=\"redis\"}[$rate_interval]))",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          }
-        }
-      ],
-      "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "textMode": "auto",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "decimals": null,
-          "noValue": "no data",
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "#f97316"
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "#f97316",
-                "value": null
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "id": 5,
-      "gridPos": {
-        "x": 18,
-        "y": 1,
-        "w": 6,
-        "h": 4
-      }
-    },
-    {
-      "type": "timeseries",
-      "title": "Redis Memory Utilization vs Ceiling",
-      "description": "Memory usage compared with maxmemory configuration threshold",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "max(redis_memory_used_bytes{job=\"redis\"})",
-          "legendFormat": "memory used",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          }
-        },
-        {
-          "refId": "B",
-          "expr": "max(redis_memory_max_bytes{job=\"redis\"})",
-          "legendFormat": "maxmemory ceiling",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          }
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "bytes",
-          "noValue": "no data",
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "lineWidth": 2,
-            "fillOpacity": 16,
-            "gradientMode": "opacity",
-            "showPoints": "auto",
-            "pointSize": 4,
-            "spanNulls": false,
-            "lineInterpolation": "smooth",
-            "axisBorderShow": false,
-            "axisGridShow": true,
-            "stacking": {
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "#3b82f6",
-                "value": null
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "bottom",
-          "calcs": [
-            "mean",
-            "max",
-            "lastNotNull"
-          ]
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "id": 6,
-      "gridPos": {
-        "x": 0,
-        "y": 5,
-        "w": 12,
-        "h": 8
-      }
-    },
-    {
-      "type": "timeseries",
-      "title": "Redis Command Throughput",
-      "description": "Throughput of Redis reads, writes, and ZSET rank queries",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sum(rate(redis_commands_total{job=\"redis\"}[$rate_interval]))",
-          "legendFormat": "commands / s",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          }
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "noValue": "no data",
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "#f97316"
-          },
-          "custom": {
-            "lineWidth": 2,
-            "fillOpacity": 16,
-            "gradientMode": "opacity",
-            "showPoints": "auto",
-            "pointSize": 4,
-            "spanNulls": false,
-            "lineInterpolation": "smooth",
-            "axisBorderShow": false,
-            "axisGridShow": true,
-            "stacking": {
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "#f97316",
-                "value": null
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "calcs": []
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "id": 7,
-      "gridPos": {
-        "x": 12,
-        "y": 5,
-        "w": 12,
-        "h": 8
-      }
-    },
-    {
-      "type": "timeseries",
-      "title": "Redis Roundtrip PING Latency",
-      "description": "Roundtrip network and command latency from worker to Redis",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "histogram_quantile(0.5, sum by (le) (rate(surgeguard_redis_ping_seconds_bucket[$rate_interval])))",
-          "legendFormat": "p50 ping latency",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          }
-        },
-        {
-          "refId": "B",
-          "expr": "histogram_quantile(0.95, sum by (le) (rate(surgeguard_redis_ping_seconds_bucket[$rate_interval])))",
-          "legendFormat": "p95 ping latency",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          }
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "s",
-          "noValue": "no data",
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "lineWidth": 2,
-            "fillOpacity": 16,
-            "gradientMode": "opacity",
-            "showPoints": "auto",
-            "pointSize": 4,
-            "spanNulls": false,
-            "lineInterpolation": "smooth",
-            "axisBorderShow": false,
-            "axisGridShow": true,
-            "stacking": {
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "#f59e0b",
-                "value": null
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "bottom",
-          "calcs": [
-            "mean",
-            "max",
-            "lastNotNull"
-          ]
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "id": 8,
-      "gridPos": {
-        "x": 0,
-        "y": 13,
-        "w": 12,
-        "h": 8
-      }
-    },
-    {
-      "type": "timeseries",
-      "title": "Connected Redis Clients",
-      "description": "Socket connections maintained across API and worker instances",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "max(redis_connected_clients{job=\"redis\"})",
-          "legendFormat": "connected clients",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          }
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "noValue": "no data",
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "#10b981"
-          },
-          "custom": {
-            "lineWidth": 2,
-            "fillOpacity": 16,
-            "gradientMode": "opacity",
-            "showPoints": "auto",
-            "pointSize": 4,
-            "spanNulls": false,
-            "lineInterpolation": "smooth",
-            "axisBorderShow": false,
-            "axisGridShow": true,
-            "stacking": {
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "#10b981",
-                "value": null
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "calcs": []
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "id": 9,
-      "gridPos": {
-        "x": 12,
-        "y": 13,
-        "w": 12,
-        "h": 8
-      }
-    },
-    {
-      "type": "row",
-      "title": "Admission Worker & Probing Engine",
-      "collapsed": false,
-      "id": 10,
-      "gridPos": {
-        "x": 0,
-        "y": 21,
-        "w": 24,
-        "h": 1
-      }
-    },
-    {
-      "type": "stat",
-      "title": "Worker Leader",
-      "description": "1 = Worker currently holds distributed leader lock in Redis",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "max(surgeguard_worker_is_leader)",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          }
-        }
-      ],
-      "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "textMode": "auto",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "decimals": null,
-          "noValue": "no data",
-          "color": {
-            "mode": "thresholds",
-            "fixedColor": "#94a3b8"
+            "mode": "thresholds"
           },
           "thresholds": {
             "mode": "absolute",
@@ -663,82 +208,23 @@
                 "value": 1
               }
             ]
-          }
-        },
-        "overrides": []
-      },
-      "id": 11,
-      "gridPos": {
-        "x": 0,
-        "y": 22,
-        "w": 6,
-        "h": 4
-      }
-    },
-    {
-      "type": "stat",
-      "title": "Worker Iterations / s",
-      "description": "Cadence of admission evaluation ticks per second",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sum(rate(surgeguard_worker_ticks_total[$rate_interval]))",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          }
-        }
-      ],
-      "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "textMode": "auto",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "decimals": null,
-          "noValue": "no data",
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "#10b981"
           },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "#10b981",
-                "value": null
-              }
-            ]
-          }
+          "mappings": []
         },
         "overrides": []
       },
-      "id": 12,
+      "id": 4,
       "gridPos": {
-        "x": 6,
-        "y": 22,
+        "x": 12,
+        "y": 2,
         "w": 6,
-        "h": 4
+        "h": 5
       }
     },
     {
       "type": "stat",
-      "title": "Seconds Since Last Tick",
-      "description": "Elapsed time since worker completed its last loop iteration",
+      "title": "Seconds since tick",
+      "description": "Age of last worker tick. Red \u226515 s = worker may be stuck.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -754,7 +240,7 @@
         }
       ],
       "options": {
-        "colorMode": "value",
+        "colorMode": "background",
         "graphMode": "area",
         "textMode": "auto",
         "orientation": "auto",
@@ -769,11 +255,10 @@
       "fieldConfig": {
         "defaults": {
           "unit": "s",
-          "decimals": null,
-          "noValue": "no data",
+          "decimals": 0,
+          "noValue": "\u2014",
           "color": {
-            "mode": "thresholds",
-            "fixedColor": "#f59e0b"
+            "mode": "thresholds"
           },
           "thresholds": {
             "mode": "absolute",
@@ -791,22 +276,35 @@
                 "value": 15
               }
             ]
-          }
+          },
+          "mappings": []
         },
         "overrides": []
       },
-      "id": 13,
+      "id": 5,
       "gridPos": {
-        "x": 12,
-        "y": 22,
+        "x": 18,
+        "y": 2,
         "w": 6,
-        "h": 4
+        "h": 5
       }
     },
     {
-      "type": "stat",
-      "title": "Healthy Backends",
-      "description": "Count of backend instances responding successfully to health checks",
+      "type": "row",
+      "title": "Redis",
+      "collapsed": false,
+      "id": 6,
+      "gridPos": {
+        "x": 0,
+        "y": 7,
+        "w": 24,
+        "h": 1
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Redis memory vs ceiling",
+      "description": "Redis memory usage vs maxmemory ceiling.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -814,34 +312,43 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "max(surgeguard_backends_healthy)",
+          "expr": "max(redis_memory_used_bytes{job=\"redis\"}) or vector(0)",
+          "legendFormat": "Used",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        },
+        {
+          "refId": "B",
+          "expr": "max(redis_memory_max_bytes{job=\"redis\"}) or vector(0)",
+          "legendFormat": "Max (maxmemory)",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           }
         }
       ],
-      "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "textMode": "auto",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        }
-      },
       "fieldConfig": {
         "defaults": {
-          "unit": "short",
-          "decimals": null,
-          "noValue": "no data",
+          "unit": "bytes",
+          "noValue": "\u2014",
           "color": {
-            "mode": "fixed",
-            "fixedColor": "#10b981"
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "gradientMode": "opacity",
+            "showPoints": "never",
+            "pointSize": 4,
+            "spanNulls": false,
+            "lineInterpolation": "smooth",
+            "axisBorderShow": false,
+            "axisGridShow": true,
+            "stacking": {
+              "mode": "none"
+            }
           },
           "thresholds": {
             "mode": "absolute",
@@ -851,22 +358,491 @@
                 "value": null
               }
             ]
-          }
+          },
+          "min": 0
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Used"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#3b82f6"
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 12
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Max (maxmemory)"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#ef4444"
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    8,
+                    4
+                  ]
+                }
+              }
+            ]
+          }
+        ]
       },
-      "id": 14,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 7,
       "gridPos": {
-        "x": 18,
-        "y": 22,
-        "w": 6,
-        "h": 4
+        "x": 0,
+        "y": 8,
+        "w": 12,
+        "h": 8
       }
     },
     {
       "type": "timeseries",
-      "title": "Worker Liveness & Heartbeat Age",
-      "description": "Staleness of worker loop; increases if worker process hangs or crashes",
+      "title": "Redis command throughput",
+      "description": "Redis operations per second (all command types).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(redis_commands_total{job=\"redis\"}[$rate_interval])) or vector(0)",
+          "legendFormat": "cmds/s",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "\u2014",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "gradientMode": "opacity",
+            "showPoints": "never",
+            "pointSize": 4,
+            "spanNulls": false,
+            "lineInterpolation": "smooth",
+            "axisBorderShow": false,
+            "axisGridShow": true,
+            "stacking": {
+              "mode": "none"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#10b981",
+                "value": null
+              }
+            ]
+          },
+          "min": 0
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "cmds/s"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#3b82f6"
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 12
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 8,
+      "gridPos": {
+        "x": 12,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Redis ping latency (p50 / p95)",
+      "description": "Round-trip latency from admission worker to Redis.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.50, sum by (le) (rate(surgeguard_redis_ping_seconds_bucket[$rate_interval])))",
+          "legendFormat": "p50",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        },
+        {
+          "refId": "B",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(surgeguard_redis_ping_seconds_bucket[$rate_interval])))",
+          "legendFormat": "p95",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "gradientMode": "opacity",
+            "showPoints": "never",
+            "pointSize": 4,
+            "spanNulls": false,
+            "lineInterpolation": "smooth",
+            "axisBorderShow": false,
+            "axisGridShow": true,
+            "stacking": {
+              "mode": "none"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#10b981",
+                "value": null
+              }
+            ]
+          },
+          "min": 0
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "p50"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#10b981"
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 8
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "p95"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#f59e0b"
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 4
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 9,
+      "gridPos": {
+        "x": 0,
+        "y": 16,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Redis connected clients",
+      "description": "Open client connections to Redis.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max(redis_connected_clients{job=\"redis\"}) or vector(0)",
+          "legendFormat": "clients",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "\u2014",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "gradientMode": "opacity",
+            "showPoints": "never",
+            "pointSize": 4,
+            "spanNulls": false,
+            "lineInterpolation": "smooth",
+            "axisBorderShow": false,
+            "axisGridShow": true,
+            "stacking": {
+              "mode": "none"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#10b981",
+                "value": null
+              }
+            ]
+          },
+          "min": 0
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "clients"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#10b981"
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 8
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 10,
+      "gridPos": {
+        "x": 12,
+        "y": 16,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "type": "row",
+      "title": "Admission worker",
+      "collapsed": false,
+      "id": 11,
+      "gridPos": {
+        "x": 0,
+        "y": 24,
+        "w": 24,
+        "h": 1
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Worker tick rate",
+      "description": "Worker loop iterations per second. Should be ~1/s at steady state.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(surgeguard_worker_ticks_total[$rate_interval])) or vector(0)",
+          "legendFormat": "ticks/s",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "\u2014",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "gradientMode": "opacity",
+            "showPoints": "never",
+            "pointSize": 4,
+            "spanNulls": false,
+            "lineInterpolation": "smooth",
+            "axisBorderShow": false,
+            "axisGridShow": true,
+            "stacking": {
+              "mode": "none"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#10b981",
+                "value": null
+              }
+            ]
+          },
+          "min": 0
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "ticks/s"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#10b981"
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 12
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 12,
+      "gridPos": {
+        "x": 0,
+        "y": 25,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Seconds since last tick",
+      "description": "Increases if the worker loop is stuck or the worker process is down.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -875,7 +851,7 @@
         {
           "refId": "A",
           "expr": "time() - max(surgeguard_worker_last_tick_timestamp_seconds)",
-          "legendFormat": "seconds since last tick",
+          "legendFormat": "staleness (s)",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -885,16 +861,15 @@
       "fieldConfig": {
         "defaults": {
           "unit": "s",
-          "noValue": "no data",
+          "noValue": "\u2014",
           "color": {
-            "mode": "fixed",
-            "fixedColor": "#f59e0b"
+            "mode": "palette-classic"
           },
           "custom": {
             "lineWidth": 2,
-            "fillOpacity": 16,
+            "fillOpacity": 12,
             "gradientMode": "opacity",
-            "showPoints": "auto",
+            "showPoints": "never",
             "pointSize": 4,
             "spanNulls": false,
             "lineInterpolation": "smooth",
@@ -919,9 +894,232 @@
                 "value": 15
               }
             ]
+          },
+          "min": 0
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "staleness (s)"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#f59e0b"
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 10
+              }
+            ]
           }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 13,
+      "gridPos": {
+        "x": 12,
+        "y": 25,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Backend probe latency",
+      "description": "Health probe round-trip latency per configured origin.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max by (backend) (surgeguard_backend_check_latency_seconds)",
+          "legendFormat": "{{backend}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "gradientMode": "opacity",
+            "showPoints": "never",
+            "pointSize": 4,
+            "spanNulls": false,
+            "lineInterpolation": "smooth",
+            "axisBorderShow": false,
+            "axisGridShow": true,
+            "stacking": {
+              "mode": "none"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#10b981",
+                "value": null
+              }
+            ]
+          },
+          "min": 0
         },
         "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 14,
+      "gridPos": {
+        "x": 0,
+        "y": 33,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Healthy vs total backends",
+      "description": "Count of healthy backends vs total configured backends.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max(surgeguard_backends_healthy) or vector(0)",
+          "legendFormat": "Healthy",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        },
+        {
+          "refId": "B",
+          "expr": "max(surgeguard_backends_total) or vector(0)",
+          "legendFormat": "Total",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "\u2014",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "gradientMode": "opacity",
+            "showPoints": "never",
+            "pointSize": 4,
+            "spanNulls": false,
+            "lineInterpolation": "smooth",
+            "axisBorderShow": false,
+            "axisGridShow": true,
+            "stacking": {
+              "mode": "none"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#10b981",
+                "value": null
+              }
+            ]
+          },
+          "min": 0
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Healthy"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#10b981"
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 10
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Total"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#64748b"
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    8,
+                    4
+                  ]
+                }
+              }
+            ]
+          }
+        ]
       },
       "options": {
         "legend": {
@@ -936,83 +1134,8 @@
       },
       "id": 15,
       "gridPos": {
-        "x": 0,
-        "y": 26,
-        "w": 12,
-        "h": 8
-      }
-    },
-    {
-      "type": "timeseries",
-      "title": "Active Probing Latency to Backends",
-      "description": "Health probe latency measured across configured upstream origins",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "max by (backend) (surgeguard_backend_check_latency_seconds)",
-          "legendFormat": "probe latency {{backend}}",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          }
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "s",
-          "noValue": "no data",
-          "color": {
-            "mode": "fixed",
-            "fixedColor": "#10b981"
-          },
-          "custom": {
-            "lineWidth": 2,
-            "fillOpacity": 16,
-            "gradientMode": "opacity",
-            "showPoints": "auto",
-            "pointSize": 4,
-            "spanNulls": false,
-            "lineInterpolation": "smooth",
-            "axisBorderShow": false,
-            "axisGridShow": true,
-            "stacking": {
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "#10b981",
-                "value": null
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "calcs": []
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "id": 16,
-      "gridPos": {
         "x": 12,
-        "y": 26,
+        "y": 33,
         "w": 12,
         "h": 8
       }
@@ -1065,6 +1188,55 @@
         "hide": false,
         "name": "Annotations & Alerts",
         "type": "dashboard"
+      },
+      {
+        "name": "Backend down",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "enable": true,
+        "hide": false,
+        "expr": "changes(surgeguard_backend_up[30s]) != 0",
+        "step": "30s",
+        "titleFormat": "Backend probe change",
+        "textFormat": "{{backend}}",
+        "iconColor": "#ef4444",
+        "tags": [
+          "backend"
+        ]
+      },
+      {
+        "name": "Admission paused/resumed",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "enable": true,
+        "hide": false,
+        "expr": "changes(surgeguard_admission_paused[30s]) != 0",
+        "step": "30s",
+        "titleFormat": "Admission state change",
+        "iconColor": "#f59e0b",
+        "tags": [
+          "admission"
+        ]
+      },
+      {
+        "name": "Worker leader change",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "enable": true,
+        "hide": false,
+        "expr": "changes(surgeguard_worker_is_leader[30s]) != 0",
+        "step": "30s",
+        "titleFormat": "Leader election",
+        "iconColor": "#8b5cf6",
+        "tags": [
+          "worker"
+        ]
       }
     ]
   }
