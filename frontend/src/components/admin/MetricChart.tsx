@@ -61,6 +61,7 @@ export function MetricChart({
   color = "var(--accent)",
   reference,
   events,
+  height = "h-52",
 }: {
   title: string;
   description?: string;
@@ -70,21 +71,37 @@ export function MetricChart({
   color?: string;
   reference?: { value: number; label: string } | null;
   events?: EventItem[];
+  height?: string;
 }) {
   const poll = usePolling<SeriesResponse>(`/api/metrics/range?name=${query}&range=${range}`, 15_000);
   const points = poll.data?.series[0]?.points ?? [];
-  const hasData = points.some((p) => p.v !== null);
-  const gradientId = `grad-${query}`;
+  const validPoints = points.filter((p) => p.v !== null);
+  const hasData = validPoints.length > 0;
+  const gradientId = `grad-${query.replace(/[^a-zA-Z0-9_-]/g, "_")}`;
   const first = points[0]?.t ?? 0;
   const last = points[points.length - 1]?.t ?? 0;
   const markers = (events ?? []).filter((e) => MARKERS[e.kind] && e.ts_ms >= first && e.ts_ms <= last);
-  const maxValue = Math.max(0, ...points.map((p) => p.v ?? 0));
+  const maxValue = hasData ? Math.max(0, ...validPoints.map((p) => p.v ?? 0)) : 0;
+  const latestValue = hasData ? validPoints[validPoints.length - 1]?.v ?? null : null;
   const yMax = reference ? Math.max(maxValue, reference.value * 1.15) : undefined;
 
   return (
     <Card className="flex min-w-0 flex-col">
-      <CardHeader title={title} description={description} action={<LiveStamp updatedAt={poll.updatedAt} stale={poll.stale} />} />
-      <div className="h-52 px-2 pb-2 pt-2">
+      <CardHeader
+        title={title}
+        description={description}
+        action={
+          <div className="flex items-center gap-2">
+            {latestValue !== null ? (
+              <span className="rounded-md border border-border bg-surface-elevated px-2 py-0.5 font-mono text-xs font-semibold tabular-nums text-foreground">
+                {format(latestValue)}
+              </span>
+            ) : null}
+            <LiveStamp updatedAt={poll.updatedAt} stale={poll.stale} />
+          </div>
+        }
+      />
+      <div className={cn(height, "px-2 pb-2 pt-2")}>
         {poll.status === "loading" ? (
           <ChartSkeleton />
         ) : !poll.data ? (
@@ -101,8 +118,8 @@ export function MetricChart({
             <AreaChart data={points} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
               <defs>
                 <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={color} stopOpacity={0.22} />
-                  <stop offset="100%" stopColor={color} stopOpacity={0} />
+                  <stop offset="0%" stopColor={color} stopOpacity={0.24} />
+                  <stop offset="100%" stopColor={color} stopOpacity={0.01} />
                 </linearGradient>
               </defs>
               <CartesianGrid stroke="var(--border)" strokeDasharray="2 4" vertical={false} />
@@ -112,14 +129,14 @@ export function MetricChart({
                 domain={["dataMin", "dataMax"]}
                 tickFormatter={(t: number) => formatClock(t).slice(0, 5)}
                 stroke="var(--subtle)"
-                tick={{ fontSize: 12 }}
+                tick={{ fontSize: 11 }}
                 tickLine={false}
                 axisLine={false}
                 minTickGap={48}
               />
               <YAxis
                 stroke="var(--subtle)"
-                tick={{ fontSize: 12 }}
+                tick={{ fontSize: 11 }}
                 tickLine={false}
                 axisLine={false}
                 width={44}
@@ -127,12 +144,13 @@ export function MetricChart({
                 tickFormatter={(v: number) => format(v)}
               />
               <Tooltip
-                cursor={{ stroke: "var(--border-strong)" }}
+                cursor={{ stroke: "var(--border-strong)", strokeDasharray: "3 3" }}
                 contentStyle={{
                   background: "var(--surface-elevated)",
                   border: "1px solid var(--border)",
                   borderRadius: 10,
                   fontSize: 12,
+                  boxShadow: "var(--shadow-pop)",
                   color: "var(--foreground)",
                 }}
                 labelFormatter={(t) => formatClock(Number(t))}
@@ -154,17 +172,18 @@ export function MetricChart({
                   stroke="var(--muted)"
                   strokeDasharray="5 4"
                   ifOverflow="extendDomain"
-                  label={{ value: reference.label, position: "insideTopRight", fill: "var(--muted)", fontSize: 12 }}
+                  label={{ value: reference.label, position: "insideTopRight", fill: "var(--muted)", fontSize: 11 }}
                 />
               ) : null}
               <Area
                 type="monotone"
                 dataKey="v"
                 stroke={color}
-                strokeWidth={1.75}
+                strokeWidth={2}
                 fill={`url(#${gradientId})`}
                 connectNulls={false}
                 isAnimationActive={false}
+                activeDot={{ r: 4, stroke: "var(--surface)", strokeWidth: 2, fill: color }}
               />
             </AreaChart>
           </ResponsiveContainer>

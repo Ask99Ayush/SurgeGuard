@@ -24,6 +24,15 @@ export const QUERIES = {
   redis_ping_p95: "histogram_quantile(0.95, sum by (le) (rate(surgeguard_redis_ping_seconds_bucket[1m])))",
   upstream_5xx_rps: 'sum(rate(demo_requests_total{status=~"5.."}[1m]))',
   origin_success_rps: 'sum(rate(demo_requests_total{status=~"2.."}[1m]))',
+  admission_rate_effective: "max(surgeguard_admission_rate_effective)",
+  admission_rate_configured: "max(surgeguard_admission_rate_configured)",
+  queue_joins_rps: "sum(rate(surgeguard_queue_joins_total[1m]))",
+  redis_commands_rps: 'sum(rate(redis_commands_total{job="redis"}[1m]))',
+  worker_ticks_rps: "sum(rate(surgeguard_worker_ticks_total[1m]))",
+  worker_last_tick_age: "time() - max(surgeguard_worker_last_tick_timestamp_seconds)",
+  origin_overload_rejections: "sum(rate(demo_overload_rejections_total[1m]))",
+  origin_forbidden_rps: "sum(rate(demo_forbidden_total[1m]))",
+  wait_p50_seconds: "histogram_quantile(0.50, sum by (le) (rate(surgeguard_queue_wait_seconds_bucket[5m])))",
 } as const;
 
 export type QueryName = keyof typeof QUERIES;

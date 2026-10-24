@@ -4,14 +4,16 @@
   "description": "Redis memory utilization, command throughput, worker loop cadence, and container infrastructure health.",
   "tags": [
     "surgeguard",
-    "observability"
+    "observability",
+    "production",
+    "cloud-security"
   ],
   "timezone": "browser",
   "schemaVersion": 39,
-  "version": 1,
+  "version": 2,
   "refresh": "5s",
   "time": {
-    "from": "now-30m",
+    "from": "now-15m",
     "to": "now"
   },
   "editable": false,
@@ -19,7 +21,7 @@
   "panels": [
     {
       "type": "row",
-      "title": "Redis Key-Value Telemetry",
+      "title": "Redis Key-Value Telemetry & Memory",
       "collapsed": false,
       "id": 1,
       "gridPos": {
@@ -32,6 +34,7 @@
     {
       "type": "stat",
       "title": "Redis Available",
+      "description": "Operational status of Redis cluster instance",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -49,10 +52,14 @@
       "options": {
         "colorMode": "value",
         "graphMode": "area",
+        "textMode": "auto",
+        "orientation": "auto",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
-          ]
+          ],
+          "fields": "",
+          "values": false
         }
       },
       "fieldConfig": {
@@ -72,7 +79,7 @@
                 "value": null
               },
               {
-                "color": "#22c55e",
+                "color": "#10b981",
                 "value": 1
               }
             ]
@@ -91,6 +98,7 @@
     {
       "type": "stat",
       "title": "Redis Memory Used",
+      "description": "Total memory allocated to Redis data structures",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -108,10 +116,14 @@
       "options": {
         "colorMode": "value",
         "graphMode": "area",
+        "textMode": "auto",
+        "orientation": "auto",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
-          ]
+          ],
+          "fields": "",
+          "values": false
         }
       },
       "fieldConfig": {
@@ -121,13 +133,13 @@
           "noValue": "no data",
           "color": {
             "mode": "fixed",
-            "fixedColor": "#38bdf8"
+            "fixedColor": "#3b82f6"
           },
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
-                "color": "#38bdf8",
+                "color": "#3b82f6",
                 "value": null
               }
             ]
@@ -146,6 +158,7 @@
     {
       "type": "stat",
       "title": "Connected Clients",
+      "description": "Active client socket connections to Redis",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -163,10 +176,14 @@
       "options": {
         "colorMode": "value",
         "graphMode": "area",
+        "textMode": "auto",
+        "orientation": "auto",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
-          ]
+          ],
+          "fields": "",
+          "values": false
         }
       },
       "fieldConfig": {
@@ -176,13 +193,13 @@
           "noValue": "no data",
           "color": {
             "mode": "fixed",
-            "fixedColor": "#22c55e"
+            "fixedColor": "#10b981"
           },
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
-                "color": "#22c55e",
+                "color": "#10b981",
                 "value": null
               }
             ]
@@ -201,6 +218,7 @@
     {
       "type": "stat",
       "title": "Commands / s",
+      "description": "Operations executed per second against Redis",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -208,7 +226,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(rate(redis_commands_total{job=\"redis\"}[1m]))",
+          "expr": "sum(rate(redis_commands_total{job=\"redis\"}[$rate_interval]))",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -218,10 +236,14 @@
       "options": {
         "colorMode": "value",
         "graphMode": "area",
+        "textMode": "auto",
+        "orientation": "auto",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
-          ]
+          ],
+          "fields": "",
+          "values": false
         }
       },
       "fieldConfig": {
@@ -231,13 +253,13 @@
           "noValue": "no data",
           "color": {
             "mode": "fixed",
-            "fixedColor": "#ff9900"
+            "fixedColor": "#f97316"
           },
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
-                "color": "#ff9900",
+                "color": "#f97316",
                 "value": null
               }
             ]
@@ -255,7 +277,8 @@
     },
     {
       "type": "timeseries",
-      "title": "Redis Memory Utilization",
+      "title": "Redis Memory Utilization vs Ceiling",
+      "description": "Memory usage compared with maxmemory configuration threshold",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -289,24 +312,46 @@
           },
           "custom": {
             "lineWidth": 2,
-            "fillOpacity": 12,
+            "fillOpacity": 16,
             "gradientMode": "opacity",
-            "showPoints": "never",
+            "showPoints": "auto",
+            "pointSize": 4,
             "spanNulls": false,
+            "lineInterpolation": "smooth",
+            "axisBorderShow": false,
+            "axisGridShow": true,
             "stacking": {
               "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
             }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#3b82f6",
+                "value": null
+              }
+            ]
           }
         },
         "overrides": []
       },
       "options": {
         "legend": {
-          "displayMode": "list",
-          "placement": "bottom"
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ]
         },
         "tooltip": {
-          "mode": "multi"
+          "mode": "multi",
+          "sort": "desc"
         }
       },
       "id": 6,
@@ -320,6 +365,7 @@
     {
       "type": "timeseries",
       "title": "Redis Command Throughput",
+      "description": "Throughput of Redis reads, writes, and ZSET rank queries",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -327,8 +373,8 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(rate(redis_commands_total{job=\"redis\"}[1m]))",
-          "legendFormat": "commands/s",
+          "expr": "sum(rate(redis_commands_total{job=\"redis\"}[$rate_interval]))",
+          "legendFormat": "commands / s",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -341,17 +387,33 @@
           "noValue": "no data",
           "color": {
             "mode": "fixed",
-            "fixedColor": "#ff9900"
+            "fixedColor": "#f97316"
           },
           "custom": {
             "lineWidth": 2,
-            "fillOpacity": 12,
+            "fillOpacity": 16,
             "gradientMode": "opacity",
-            "showPoints": "never",
+            "showPoints": "auto",
+            "pointSize": 4,
             "spanNulls": false,
+            "lineInterpolation": "smooth",
+            "axisBorderShow": false,
+            "axisGridShow": true,
             "stacking": {
               "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
             }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#f97316",
+                "value": null
+              }
+            ]
           }
         },
         "overrides": []
@@ -359,10 +421,12 @@
       "options": {
         "legend": {
           "displayMode": "list",
-          "placement": "bottom"
+          "placement": "bottom",
+          "calcs": []
         },
         "tooltip": {
-          "mode": "multi"
+          "mode": "multi",
+          "sort": "desc"
         }
       },
       "id": 7,
@@ -376,6 +440,7 @@
     {
       "type": "timeseries",
       "title": "Redis Roundtrip PING Latency",
+      "description": "Roundtrip network and command latency from worker to Redis",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -383,8 +448,8 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "histogram_quantile(0.5, sum by (le) (rate(surgeguard_redis_ping_seconds_bucket[1m])))",
-          "legendFormat": "p50",
+          "expr": "histogram_quantile(0.5, sum by (le) (rate(surgeguard_redis_ping_seconds_bucket[$rate_interval])))",
+          "legendFormat": "p50 ping latency",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -392,8 +457,8 @@
         },
         {
           "refId": "B",
-          "expr": "histogram_quantile(0.95, sum by (le) (rate(surgeguard_redis_ping_seconds_bucket[1m])))",
-          "legendFormat": "p95",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(surgeguard_redis_ping_seconds_bucket[$rate_interval])))",
+          "legendFormat": "p95 ping latency",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -409,24 +474,46 @@
           },
           "custom": {
             "lineWidth": 2,
-            "fillOpacity": 12,
+            "fillOpacity": 16,
             "gradientMode": "opacity",
-            "showPoints": "never",
+            "showPoints": "auto",
+            "pointSize": 4,
             "spanNulls": false,
+            "lineInterpolation": "smooth",
+            "axisBorderShow": false,
+            "axisGridShow": true,
             "stacking": {
               "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
             }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#f59e0b",
+                "value": null
+              }
+            ]
           }
         },
         "overrides": []
       },
       "options": {
         "legend": {
-          "displayMode": "list",
-          "placement": "bottom"
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ]
         },
         "tooltip": {
-          "mode": "multi"
+          "mode": "multi",
+          "sort": "desc"
         }
       },
       "id": 8,
@@ -440,6 +527,7 @@
     {
       "type": "timeseries",
       "title": "Connected Redis Clients",
+      "description": "Socket connections maintained across API and worker instances",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -448,7 +536,7 @@
         {
           "refId": "A",
           "expr": "max(redis_connected_clients{job=\"redis\"})",
-          "legendFormat": "clients",
+          "legendFormat": "connected clients",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -461,17 +549,33 @@
           "noValue": "no data",
           "color": {
             "mode": "fixed",
-            "fixedColor": "#22c55e"
+            "fixedColor": "#10b981"
           },
           "custom": {
             "lineWidth": 2,
-            "fillOpacity": 12,
+            "fillOpacity": 16,
             "gradientMode": "opacity",
-            "showPoints": "never",
+            "showPoints": "auto",
+            "pointSize": 4,
             "spanNulls": false,
+            "lineInterpolation": "smooth",
+            "axisBorderShow": false,
+            "axisGridShow": true,
             "stacking": {
               "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
             }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#10b981",
+                "value": null
+              }
+            ]
           }
         },
         "overrides": []
@@ -479,10 +583,12 @@
       "options": {
         "legend": {
           "displayMode": "list",
-          "placement": "bottom"
+          "placement": "bottom",
+          "calcs": []
         },
         "tooltip": {
-          "mode": "multi"
+          "mode": "multi",
+          "sort": "desc"
         }
       },
       "id": 9,
@@ -508,6 +614,7 @@
     {
       "type": "stat",
       "title": "Worker Leader",
+      "description": "1 = Worker currently holds distributed leader lock in Redis",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -525,10 +632,14 @@
       "options": {
         "colorMode": "value",
         "graphMode": "area",
+        "textMode": "auto",
+        "orientation": "auto",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
-          ]
+          ],
+          "fields": "",
+          "values": false
         }
       },
       "fieldConfig": {
@@ -548,7 +659,7 @@
                 "value": null
               },
               {
-                "color": "#22c55e",
+                "color": "#10b981",
                 "value": 1
               }
             ]
@@ -567,6 +678,7 @@
     {
       "type": "stat",
       "title": "Worker Iterations / s",
+      "description": "Cadence of admission evaluation ticks per second",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -574,7 +686,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(rate(surgeguard_worker_ticks_total[1m]))",
+          "expr": "sum(rate(surgeguard_worker_ticks_total[$rate_interval]))",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -584,10 +696,14 @@
       "options": {
         "colorMode": "value",
         "graphMode": "area",
+        "textMode": "auto",
+        "orientation": "auto",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
-          ]
+          ],
+          "fields": "",
+          "values": false
         }
       },
       "fieldConfig": {
@@ -597,13 +713,13 @@
           "noValue": "no data",
           "color": {
             "mode": "fixed",
-            "fixedColor": "#22c55e"
+            "fixedColor": "#10b981"
           },
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
-                "color": "#22c55e",
+                "color": "#10b981",
                 "value": null
               }
             ]
@@ -622,6 +738,7 @@
     {
       "type": "stat",
       "title": "Seconds Since Last Tick",
+      "description": "Elapsed time since worker completed its last loop iteration",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -639,10 +756,14 @@
       "options": {
         "colorMode": "value",
         "graphMode": "area",
+        "textMode": "auto",
+        "orientation": "auto",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
-          ]
+          ],
+          "fields": "",
+          "values": false
         }
       },
       "fieldConfig": {
@@ -651,15 +772,23 @@
           "decimals": null,
           "noValue": "no data",
           "color": {
-            "mode": "fixed",
+            "mode": "thresholds",
             "fixedColor": "#f59e0b"
           },
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
-                "color": "#f59e0b",
+                "color": "#10b981",
                 "value": null
+              },
+              {
+                "color": "#f59e0b",
+                "value": 5
+              },
+              {
+                "color": "#ef4444",
+                "value": 15
               }
             ]
           }
@@ -677,6 +806,7 @@
     {
       "type": "stat",
       "title": "Healthy Backends",
+      "description": "Count of backend instances responding successfully to health checks",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -694,10 +824,14 @@
       "options": {
         "colorMode": "value",
         "graphMode": "area",
+        "textMode": "auto",
+        "orientation": "auto",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
-          ]
+          ],
+          "fields": "",
+          "values": false
         }
       },
       "fieldConfig": {
@@ -707,13 +841,13 @@
           "noValue": "no data",
           "color": {
             "mode": "fixed",
-            "fixedColor": "#22c55e"
+            "fixedColor": "#10b981"
           },
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
-                "color": "#22c55e",
+                "color": "#10b981",
                 "value": null
               }
             ]
@@ -732,6 +866,7 @@
     {
       "type": "timeseries",
       "title": "Worker Liveness & Heartbeat Age",
+      "description": "Staleness of worker loop; increases if worker process hangs or crashes",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -757,13 +892,33 @@
           },
           "custom": {
             "lineWidth": 2,
-            "fillOpacity": 12,
+            "fillOpacity": 16,
             "gradientMode": "opacity",
-            "showPoints": "never",
+            "showPoints": "auto",
+            "pointSize": 4,
             "spanNulls": false,
+            "lineInterpolation": "smooth",
+            "axisBorderShow": false,
+            "axisGridShow": true,
             "stacking": {
               "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "line"
             }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#f59e0b",
+                "value": 5
+              },
+              {
+                "color": "#ef4444",
+                "value": 15
+              }
+            ]
           }
         },
         "overrides": []
@@ -771,10 +926,12 @@
       "options": {
         "legend": {
           "displayMode": "list",
-          "placement": "bottom"
+          "placement": "bottom",
+          "calcs": []
         },
         "tooltip": {
-          "mode": "multi"
+          "mode": "multi",
+          "sort": "desc"
         }
       },
       "id": 15,
@@ -788,6 +945,7 @@
     {
       "type": "timeseries",
       "title": "Active Probing Latency to Backends",
+      "description": "Health probe latency measured across configured upstream origins",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -796,7 +954,7 @@
         {
           "refId": "A",
           "expr": "max by (backend) (surgeguard_backend_check_latency_seconds)",
-          "legendFormat": "{{backend}}",
+          "legendFormat": "probe latency {{backend}}",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -809,17 +967,33 @@
           "noValue": "no data",
           "color": {
             "mode": "fixed",
-            "fixedColor": "#22c55e"
+            "fixedColor": "#10b981"
           },
           "custom": {
             "lineWidth": 2,
-            "fillOpacity": 12,
+            "fillOpacity": 16,
             "gradientMode": "opacity",
-            "showPoints": "never",
+            "showPoints": "auto",
+            "pointSize": 4,
             "spanNulls": false,
+            "lineInterpolation": "smooth",
+            "axisBorderShow": false,
+            "axisGridShow": true,
             "stacking": {
               "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
             }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#10b981",
+                "value": null
+              }
+            ]
           }
         },
         "overrides": []
@@ -827,10 +1001,12 @@
       "options": {
         "legend": {
           "displayMode": "list",
-          "placement": "bottom"
+          "placement": "bottom",
+          "calcs": []
         },
         "tooltip": {
-          "mode": "multi"
+          "mode": "multi",
+          "sort": "desc"
         }
       },
       "id": 16,
@@ -843,9 +1019,53 @@
     }
   ],
   "templating": {
-    "list": []
+    "list": [
+      {
+        "name": "rate_interval",
+        "type": "custom",
+        "label": "Rate Window",
+        "query": "30s,1m,2m,5m",
+        "current": {
+          "text": "1m",
+          "value": "1m",
+          "selected": true
+        },
+        "options": [
+          {
+            "text": "30s",
+            "value": "30s",
+            "selected": false
+          },
+          {
+            "text": "1m",
+            "value": "1m",
+            "selected": true
+          },
+          {
+            "text": "2m",
+            "value": "2m",
+            "selected": false
+          },
+          {
+            "text": "5m",
+            "value": "5m",
+            "selected": false
+          }
+        ],
+        "hide": 0
+      }
+    ]
   },
   "annotations": {
-    "list": []
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": "-- Grafana --",
+        "enable": true,
+        "hide": false,
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
   }
 }

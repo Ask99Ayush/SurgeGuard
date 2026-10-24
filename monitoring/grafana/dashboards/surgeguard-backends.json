@@ -4,14 +4,16 @@
   "description": "Edge traffic handling, connection pools, and per-instance origin health.",
   "tags": [
     "surgeguard",
-    "observability"
+    "observability",
+    "production",
+    "cloud-security"
   ],
   "timezone": "browser",
   "schemaVersion": 39,
-  "version": 1,
+  "version": 2,
   "refresh": "5s",
   "time": {
-    "from": "now-30m",
+    "from": "now-15m",
     "to": "now"
   },
   "editable": false,
@@ -19,7 +21,7 @@
   "panels": [
     {
       "type": "row",
-      "title": "Nginx Edge Ingestion",
+      "title": "Nginx Edge Ingestion & Connections",
       "collapsed": false,
       "id": 1,
       "gridPos": {
@@ -32,6 +34,7 @@
     {
       "type": "stat",
       "title": "Nginx Edge Requests / s",
+      "description": "Public ingress request rate at reverse proxy",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -39,7 +42,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(rate(nginx_http_requests_total[1m]))",
+          "expr": "sum(rate(nginx_http_requests_total[$rate_interval]))",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -49,10 +52,14 @@
       "options": {
         "colorMode": "value",
         "graphMode": "area",
+        "textMode": "auto",
+        "orientation": "auto",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
-          ]
+          ],
+          "fields": "",
+          "values": false
         }
       },
       "fieldConfig": {
@@ -62,13 +69,13 @@
           "noValue": "no data",
           "color": {
             "mode": "fixed",
-            "fixedColor": "#38bdf8"
+            "fixedColor": "#06b6d4"
           },
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
-                "color": "#38bdf8",
+                "color": "#06b6d4",
                 "value": null
               }
             ]
@@ -87,6 +94,7 @@
     {
       "type": "stat",
       "title": "Active TCP Connections",
+      "description": "Currently open client connections",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -104,10 +112,14 @@
       "options": {
         "colorMode": "value",
         "graphMode": "area",
+        "textMode": "auto",
+        "orientation": "auto",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
-          ]
+          ],
+          "fields": "",
+          "values": false
         }
       },
       "fieldConfig": {
@@ -117,13 +129,13 @@
           "noValue": "no data",
           "color": {
             "mode": "fixed",
-            "fixedColor": "#22c55e"
+            "fixedColor": "#10b981"
           },
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
-                "color": "#22c55e",
+                "color": "#10b981",
                 "value": null
               }
             ]
@@ -142,6 +154,7 @@
     {
       "type": "stat",
       "title": "Connections Waiting",
+      "description": "Keep-alive connections waiting for next request",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -159,10 +172,14 @@
       "options": {
         "colorMode": "value",
         "graphMode": "area",
+        "textMode": "auto",
+        "orientation": "auto",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
-          ]
+          ],
+          "fields": "",
+          "values": false
         }
       },
       "fieldConfig": {
@@ -197,6 +214,7 @@
     {
       "type": "stat",
       "title": "Nginx Health",
+      "description": "1 = Nginx reverse proxy healthy and scraping",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -214,10 +232,14 @@
       "options": {
         "colorMode": "value",
         "graphMode": "area",
+        "textMode": "auto",
+        "orientation": "auto",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
-          ]
+          ],
+          "fields": "",
+          "values": false
         }
       },
       "fieldConfig": {
@@ -237,7 +259,7 @@
                 "value": null
               },
               {
-                "color": "#22c55e",
+                "color": "#10b981",
                 "value": 1
               }
             ]
@@ -256,6 +278,7 @@
     {
       "type": "timeseries",
       "title": "Edge Request Volume (Requests / s)",
+      "description": "Total HTTP traffic ingested across public edge endpoints",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -263,7 +286,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(rate(nginx_http_requests_total[1m]))",
+          "expr": "sum(rate(nginx_http_requests_total[$rate_interval]))",
           "legendFormat": "nginx rps",
           "datasource": {
             "type": "prometheus",
@@ -277,17 +300,33 @@
           "noValue": "no data",
           "color": {
             "mode": "fixed",
-            "fixedColor": "#38bdf8"
+            "fixedColor": "#06b6d4"
           },
           "custom": {
             "lineWidth": 2,
-            "fillOpacity": 12,
+            "fillOpacity": 16,
             "gradientMode": "opacity",
-            "showPoints": "never",
+            "showPoints": "auto",
+            "pointSize": 4,
             "spanNulls": false,
+            "lineInterpolation": "smooth",
+            "axisBorderShow": false,
+            "axisGridShow": true,
             "stacking": {
               "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
             }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#06b6d4",
+                "value": null
+              }
+            ]
           }
         },
         "overrides": []
@@ -295,10 +334,12 @@
       "options": {
         "legend": {
           "displayMode": "list",
-          "placement": "bottom"
+          "placement": "bottom",
+          "calcs": []
         },
         "tooltip": {
-          "mode": "multi"
+          "mode": "multi",
+          "sort": "desc"
         }
       },
       "id": 6,
@@ -311,7 +352,8 @@
     },
     {
       "type": "timeseries",
-      "title": "Connection States",
+      "title": "Connection States Breakdown",
+      "description": "Distribution of TCP connection states inside Nginx worker processes",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -329,7 +371,7 @@
         {
           "refId": "B",
           "expr": "max(nginx_connections_reading)",
-          "legendFormat": "reading",
+          "legendFormat": "reading request",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -338,7 +380,7 @@
         {
           "refId": "C",
           "expr": "max(nginx_connections_writing)",
-          "legendFormat": "writing",
+          "legendFormat": "writing response",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -347,7 +389,7 @@
         {
           "refId": "D",
           "expr": "max(nginx_connections_waiting)",
-          "legendFormat": "waiting / idle",
+          "legendFormat": "waiting / keep-alive",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -363,24 +405,46 @@
           },
           "custom": {
             "lineWidth": 2,
-            "fillOpacity": 12,
+            "fillOpacity": 16,
             "gradientMode": "opacity",
-            "showPoints": "never",
+            "showPoints": "auto",
+            "pointSize": 4,
             "spanNulls": false,
+            "lineInterpolation": "smooth",
+            "axisBorderShow": false,
+            "axisGridShow": true,
             "stacking": {
               "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
             }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#06b6d4",
+                "value": null
+              }
+            ]
           }
         },
         "overrides": []
       },
       "options": {
         "legend": {
-          "displayMode": "list",
-          "placement": "bottom"
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ]
         },
         "tooltip": {
-          "mode": "multi"
+          "mode": "multi",
+          "sort": "desc"
         }
       },
       "id": 7,
@@ -393,7 +457,7 @@
     },
     {
       "type": "row",
-      "title": "Origin Workload Distribution",
+      "title": "Origin Workload Distribution ($origin)",
       "collapsed": false,
       "id": 8,
       "gridPos": {
@@ -406,6 +470,7 @@
     {
       "type": "timeseries",
       "title": "Origin Requests / s by Instance",
+      "description": "Admitted traffic volume distributed across demo origin instances",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -413,8 +478,8 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (origin) (rate(demo_requests_total[1m]))",
-          "legendFormat": "{{origin}}",
+          "expr": "sum by (origin) (rate(demo_requests_total{origin=~\"$origin\"}[$rate_interval]))",
+          "legendFormat": "{{origin}} rps",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -427,17 +492,33 @@
           "noValue": "no data",
           "color": {
             "mode": "fixed",
-            "fixedColor": "#ff9900"
+            "fixedColor": "#06b6d4"
           },
           "custom": {
             "lineWidth": 2,
-            "fillOpacity": 12,
+            "fillOpacity": 16,
             "gradientMode": "opacity",
-            "showPoints": "never",
+            "showPoints": "auto",
+            "pointSize": 4,
             "spanNulls": false,
+            "lineInterpolation": "smooth",
+            "axisBorderShow": false,
+            "axisGridShow": true,
             "stacking": {
               "mode": "normal"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
             }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#06b6d4",
+                "value": null
+              }
+            ]
           }
         },
         "overrides": []
@@ -445,10 +526,12 @@
       "options": {
         "legend": {
           "displayMode": "list",
-          "placement": "bottom"
+          "placement": "bottom",
+          "calcs": []
         },
         "tooltip": {
-          "mode": "multi"
+          "mode": "multi",
+          "sort": "desc"
         }
       },
       "id": 9,
@@ -462,6 +545,7 @@
     {
       "type": "timeseries",
       "title": "Origin Concurrency Slots (In-flight & Pending)",
+      "description": "Internal concurrency semaphore utilization inside Python origin instances",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -469,7 +553,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (origin) (demo_inflight_requests)",
+          "expr": "sum by (origin) (demo_inflight_requests{origin=~\"$origin\"})",
           "legendFormat": "in-flight {{origin}}",
           "datasource": {
             "type": "prometheus",
@@ -478,7 +562,7 @@
         },
         {
           "refId": "B",
-          "expr": "sum by (origin) (demo_pending_requests)",
+          "expr": "sum by (origin) (demo_pending_requests{origin=~\"$origin\"})",
           "legendFormat": "pending queue {{origin}}",
           "datasource": {
             "type": "prometheus",
@@ -495,24 +579,46 @@
           },
           "custom": {
             "lineWidth": 2,
-            "fillOpacity": 12,
+            "fillOpacity": 16,
             "gradientMode": "opacity",
-            "showPoints": "never",
+            "showPoints": "auto",
+            "pointSize": 4,
             "spanNulls": false,
+            "lineInterpolation": "smooth",
+            "axisBorderShow": false,
+            "axisGridShow": true,
             "stacking": {
               "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
             }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#06b6d4",
+                "value": null
+              }
+            ]
           }
         },
         "overrides": []
       },
       "options": {
         "legend": {
-          "displayMode": "list",
-          "placement": "bottom"
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ]
         },
         "tooltip": {
-          "mode": "multi"
+          "mode": "multi",
+          "sort": "desc"
         }
       },
       "id": 10,
@@ -526,6 +632,7 @@
     {
       "type": "timeseries",
       "title": "Origin p95 Latency by Instance",
+      "description": "Execution latency percentiles grouped by backend instance",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -533,8 +640,8 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "histogram_quantile(0.95, sum by (le, origin) (rate(demo_request_duration_seconds_bucket[1m])))",
-          "legendFormat": "{{origin}}",
+          "expr": "histogram_quantile(0.95, sum by (le, origin) (rate(demo_request_duration_seconds_bucket{origin=~\"$origin\"}[$rate_interval])))",
+          "legendFormat": "{{origin}} p95",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -551,13 +658,29 @@
           },
           "custom": {
             "lineWidth": 2,
-            "fillOpacity": 12,
+            "fillOpacity": 16,
             "gradientMode": "opacity",
-            "showPoints": "never",
+            "showPoints": "auto",
+            "pointSize": 4,
             "spanNulls": false,
+            "lineInterpolation": "smooth",
+            "axisBorderShow": false,
+            "axisGridShow": true,
             "stacking": {
               "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
             }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#f59e0b",
+                "value": null
+              }
+            ]
           }
         },
         "overrides": []
@@ -565,10 +688,12 @@
       "options": {
         "legend": {
           "displayMode": "list",
-          "placement": "bottom"
+          "placement": "bottom",
+          "calcs": []
         },
         "tooltip": {
-          "mode": "multi"
+          "mode": "multi",
+          "sort": "desc"
         }
       },
       "id": 11,
@@ -582,6 +707,7 @@
     {
       "type": "timeseries",
       "title": "Overload Rejections (503) by Instance",
+      "description": "Overload rejection events triggered when internal origin concurrency is exceeded",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -589,8 +715,8 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (origin) (rate(demo_overload_rejections_total[1m]))",
-          "legendFormat": "{{origin}}",
+          "expr": "sum by (origin) (rate(demo_overload_rejections_total{origin=~\"$origin\"}[$rate_interval]))",
+          "legendFormat": "{{origin}} 503 drops",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -607,13 +733,29 @@
           },
           "custom": {
             "lineWidth": 2,
-            "fillOpacity": 12,
+            "fillOpacity": 16,
             "gradientMode": "opacity",
-            "showPoints": "never",
+            "showPoints": "auto",
+            "pointSize": 4,
             "spanNulls": false,
+            "lineInterpolation": "smooth",
+            "axisBorderShow": false,
+            "axisGridShow": true,
             "stacking": {
               "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
             }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#ef4444",
+                "value": null
+              }
+            ]
           }
         },
         "overrides": []
@@ -621,10 +763,12 @@
       "options": {
         "legend": {
           "displayMode": "list",
-          "placement": "bottom"
+          "placement": "bottom",
+          "calcs": []
         },
         "tooltip": {
-          "mode": "multi"
+          "mode": "multi",
+          "sort": "desc"
         }
       },
       "id": 12,
@@ -649,7 +793,8 @@
     },
     {
       "type": "timeseries",
-      "title": "Direct-Origin Bypass Attempts (403)",
+      "title": "Direct-Origin Bypass Attempts (403 Forbidden)",
+      "description": "Requests blocked by guard middleware because they lacked valid X-Origin-Key",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -657,8 +802,8 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (origin) (rate(demo_forbidden_total[1m]))",
-          "legendFormat": "{{origin}}",
+          "expr": "sum by (origin) (rate(demo_forbidden_total{origin=~\"$origin\"}[$rate_interval]))",
+          "legendFormat": "blocked bypass: {{origin}}",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -675,13 +820,29 @@
           },
           "custom": {
             "lineWidth": 2,
-            "fillOpacity": 12,
+            "fillOpacity": 16,
             "gradientMode": "opacity",
-            "showPoints": "never",
+            "showPoints": "auto",
+            "pointSize": 4,
             "spanNulls": false,
+            "lineInterpolation": "smooth",
+            "axisBorderShow": false,
+            "axisGridShow": true,
             "stacking": {
               "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
             }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#ef4444",
+                "value": null
+              }
+            ]
           }
         },
         "overrides": []
@@ -689,10 +850,12 @@
       "options": {
         "legend": {
           "displayMode": "list",
-          "placement": "bottom"
+          "placement": "bottom",
+          "calcs": []
         },
         "tooltip": {
-          "mode": "multi"
+          "mode": "multi",
+          "sort": "desc"
         }
       },
       "id": 14,
@@ -706,6 +869,7 @@
     {
       "type": "timeseries",
       "title": "Backend Health Check Probing Latency",
+      "description": "Roundtrip latency for worker probing origin health endpoints",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -714,7 +878,7 @@
         {
           "refId": "A",
           "expr": "max by (backend) (surgeguard_backend_check_latency_seconds)",
-          "legendFormat": "{{backend}}",
+          "legendFormat": "probe latency: {{backend}}",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -727,17 +891,33 @@
           "noValue": "no data",
           "color": {
             "mode": "fixed",
-            "fixedColor": "#22c55e"
+            "fixedColor": "#10b981"
           },
           "custom": {
             "lineWidth": 2,
-            "fillOpacity": 12,
+            "fillOpacity": 16,
             "gradientMode": "opacity",
-            "showPoints": "never",
+            "showPoints": "auto",
+            "pointSize": 4,
             "spanNulls": false,
+            "lineInterpolation": "smooth",
+            "axisBorderShow": false,
+            "axisGridShow": true,
             "stacking": {
               "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
             }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#10b981",
+                "value": null
+              }
+            ]
           }
         },
         "overrides": []
@@ -745,10 +925,12 @@
       "options": {
         "legend": {
           "displayMode": "list",
-          "placement": "bottom"
+          "placement": "bottom",
+          "calcs": []
         },
         "tooltip": {
-          "mode": "multi"
+          "mode": "multi",
+          "sort": "desc"
         }
       },
       "id": 15,
@@ -761,9 +943,73 @@
     }
   ],
   "templating": {
-    "list": []
+    "list": [
+      {
+        "name": "origin",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "label": "Origin Instance",
+        "query": "label_values(demo_requests_total, origin)",
+        "includeAll": true,
+        "allValue": ".*",
+        "multi": true,
+        "refresh": 1,
+        "current": {
+          "text": "All",
+          "value": "$__all",
+          "selected": true
+        },
+        "hide": 0
+      },
+      {
+        "name": "rate_interval",
+        "type": "custom",
+        "label": "Rate Window",
+        "query": "30s,1m,2m,5m",
+        "current": {
+          "text": "1m",
+          "value": "1m",
+          "selected": true
+        },
+        "options": [
+          {
+            "text": "30s",
+            "value": "30s",
+            "selected": false
+          },
+          {
+            "text": "1m",
+            "value": "1m",
+            "selected": true
+          },
+          {
+            "text": "2m",
+            "value": "2m",
+            "selected": false
+          },
+          {
+            "text": "5m",
+            "value": "5m",
+            "selected": false
+          }
+        ],
+        "hide": 0
+      }
+    ]
   },
   "annotations": {
-    "list": []
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": "-- Grafana --",
+        "enable": true,
+        "hide": false,
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
   }
 }

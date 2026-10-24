@@ -4,14 +4,16 @@
   "description": "What happens when dependencies fail, fail-closed enforcement behavior, and recovery speed.",
   "tags": [
     "surgeguard",
-    "observability"
+    "observability",
+    "production",
+    "cloud-security"
   ],
   "timezone": "browser",
   "schemaVersion": 39,
-  "version": 1,
+  "version": 2,
   "refresh": "5s",
   "time": {
-    "from": "now-30m",
+    "from": "now-15m",
     "to": "now"
   },
   "editable": false,
@@ -19,7 +21,7 @@
   "panels": [
     {
       "type": "row",
-      "title": "Dependency Availability Matrix",
+      "title": "Dependency Availability & Chaos Matrix",
       "collapsed": false,
       "id": 1,
       "gridPos": {
@@ -32,6 +34,7 @@
     {
       "type": "stat",
       "title": "API Availability",
+      "description": "Health check response of SurgeGuard API server",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -49,10 +52,14 @@
       "options": {
         "colorMode": "value",
         "graphMode": "area",
+        "textMode": "auto",
+        "orientation": "auto",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
-          ]
+          ],
+          "fields": "",
+          "values": false
         }
       },
       "fieldConfig": {
@@ -72,7 +79,7 @@
                 "value": null
               },
               {
-                "color": "#22c55e",
+                "color": "#10b981",
                 "value": 1
               }
             ]
@@ -91,6 +98,7 @@
     {
       "type": "stat",
       "title": "Worker Availability",
+      "description": "Health check response of admission worker daemon",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -108,10 +116,14 @@
       "options": {
         "colorMode": "value",
         "graphMode": "area",
+        "textMode": "auto",
+        "orientation": "auto",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
-          ]
+          ],
+          "fields": "",
+          "values": false
         }
       },
       "fieldConfig": {
@@ -131,7 +143,7 @@
                 "value": null
               },
               {
-                "color": "#22c55e",
+                "color": "#10b981",
                 "value": 1
               }
             ]
@@ -150,6 +162,7 @@
     {
       "type": "stat",
       "title": "Redis Availability",
+      "description": "Ping reachability of Redis state store",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -167,10 +180,14 @@
       "options": {
         "colorMode": "value",
         "graphMode": "area",
+        "textMode": "auto",
+        "orientation": "auto",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
-          ]
+          ],
+          "fields": "",
+          "values": false
         }
       },
       "fieldConfig": {
@@ -190,7 +207,7 @@
                 "value": null
               },
               {
-                "color": "#22c55e",
+                "color": "#10b981",
                 "value": 1
               }
             ]
@@ -207,8 +224,9 @@
       }
     },
     {
-      "type": "stat",
-      "title": "Healthy Backends",
+      "type": "bargauge",
+      "title": "Origin Health State (Probing Matrix)",
+      "description": "Probed health status of upstream origin instances",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -217,6 +235,16 @@
         {
           "refId": "A",
           "expr": "max(surgeguard_backends_healthy)",
+          "legendFormat": "healthy origins",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        },
+        {
+          "refId": "B",
+          "expr": "max(surgeguard_backends_total)",
+          "legendFormat": "configured total",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -224,22 +252,22 @@
         }
       ],
       "options": {
-        "colorMode": "value",
-        "graphMode": "area",
+        "displayMode": "gradient",
+        "orientation": "horizontal",
+        "showUnfilled": true,
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
-          ]
+          ],
+          "values": false
         }
       },
       "fieldConfig": {
         "defaults": {
           "unit": "short",
-          "decimals": null,
           "noValue": "no data",
           "color": {
-            "mode": "thresholds",
-            "fixedColor": "#94a3b8"
+            "mode": "thresholds"
           },
           "thresholds": {
             "mode": "absolute",
@@ -253,7 +281,7 @@
                 "value": 1
               },
               {
-                "color": "#22c55e",
+                "color": "#10b981",
                 "value": 2
               }
             ]
@@ -272,6 +300,7 @@
     {
       "type": "timeseries",
       "title": "Service Availability Grid (1 = Up, 0 = Down)",
+      "description": "Discrete liveness signal across every cluster service",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -332,24 +361,46 @@
           },
           "custom": {
             "lineWidth": 2,
-            "fillOpacity": 12,
+            "fillOpacity": 16,
             "gradientMode": "opacity",
-            "showPoints": "never",
+            "showPoints": "auto",
+            "pointSize": 4,
             "spanNulls": false,
+            "lineInterpolation": "smooth",
+            "axisBorderShow": false,
+            "axisGridShow": true,
             "stacking": {
               "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
             }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#10b981",
+                "value": null
+              }
+            ]
           }
         },
         "overrides": []
       },
       "options": {
         "legend": {
-          "displayMode": "list",
-          "placement": "bottom"
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ]
         },
         "tooltip": {
-          "mode": "multi"
+          "mode": "multi",
+          "sort": "desc"
         }
       },
       "id": 6,
@@ -363,6 +414,7 @@
     {
       "type": "timeseries",
       "title": "Configured vs Healthy Backends",
+      "description": "Comparison of total configured backends vs actively passing health checks",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -396,24 +448,46 @@
           },
           "custom": {
             "lineWidth": 2,
-            "fillOpacity": 12,
+            "fillOpacity": 16,
             "gradientMode": "opacity",
-            "showPoints": "never",
+            "showPoints": "auto",
+            "pointSize": 4,
             "spanNulls": false,
+            "lineInterpolation": "smooth",
+            "axisBorderShow": false,
+            "axisGridShow": true,
             "stacking": {
               "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
             }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#10b981",
+                "value": null
+              }
+            ]
           }
         },
         "overrides": []
       },
       "options": {
         "legend": {
-          "displayMode": "list",
-          "placement": "bottom"
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ]
         },
         "tooltip": {
-          "mode": "multi"
+          "mode": "multi",
+          "sort": "desc"
         }
       },
       "id": 7,
@@ -439,6 +513,7 @@
     {
       "type": "timeseries",
       "title": "Fail-Closed Auth Interceptions",
+      "description": "Requests refused at Nginx because an internal auth dependency was down (fail-closed security)",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -446,7 +521,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(rate(surgeguard_auth_fail_closed_total[1m]))",
+          "expr": "sum(rate(surgeguard_auth_fail_closed_total[$rate_interval]))",
           "legendFormat": "fail-closed decisions/s",
           "datasource": {
             "type": "prometheus",
@@ -464,13 +539,29 @@
           },
           "custom": {
             "lineWidth": 2,
-            "fillOpacity": 12,
+            "fillOpacity": 16,
             "gradientMode": "opacity",
-            "showPoints": "never",
+            "showPoints": "auto",
+            "pointSize": 4,
             "spanNulls": false,
+            "lineInterpolation": "smooth",
+            "axisBorderShow": false,
+            "axisGridShow": true,
             "stacking": {
               "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
             }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#ef4444",
+                "value": null
+              }
+            ]
           }
         },
         "overrides": []
@@ -478,10 +569,12 @@
       "options": {
         "legend": {
           "displayMode": "list",
-          "placement": "bottom"
+          "placement": "bottom",
+          "calcs": []
         },
         "tooltip": {
-          "mode": "multi"
+          "mode": "multi",
+          "sort": "desc"
         }
       },
       "id": 9,
@@ -495,6 +588,7 @@
     {
       "type": "timeseries",
       "title": "Admission Paused States (Auto & Manual)",
+      "description": "1 when admission loop is paused (either manually by admin or automatically due to unhealthy backends)",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -520,13 +614,29 @@
           },
           "custom": {
             "lineWidth": 2,
-            "fillOpacity": 12,
+            "fillOpacity": 16,
             "gradientMode": "opacity",
-            "showPoints": "never",
+            "showPoints": "auto",
+            "pointSize": 4,
             "spanNulls": false,
+            "lineInterpolation": "smooth",
+            "axisBorderShow": false,
+            "axisGridShow": true,
             "stacking": {
               "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
             }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#f59e0b",
+                "value": null
+              }
+            ]
           }
         },
         "overrides": []
@@ -534,10 +644,12 @@
       "options": {
         "legend": {
           "displayMode": "list",
-          "placement": "bottom"
+          "placement": "bottom",
+          "calcs": []
         },
         "tooltip": {
-          "mode": "multi"
+          "mode": "multi",
+          "sort": "desc"
         }
       },
       "id": 10,
@@ -551,6 +663,7 @@
     {
       "type": "timeseries",
       "title": "Admission Loop Failures by Reason",
+      "description": "Exceptions or network timeouts encountered during worker admission loop",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -558,7 +671,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (reason) (rate(surgeguard_admission_failures_total[1m]))",
+          "expr": "sum by (reason) (rate(surgeguard_admission_failures_total[$rate_interval]))",
           "legendFormat": "failure: {{reason}}",
           "datasource": {
             "type": "prometheus",
@@ -576,13 +689,29 @@
           },
           "custom": {
             "lineWidth": 2,
-            "fillOpacity": 12,
+            "fillOpacity": 16,
             "gradientMode": "opacity",
-            "showPoints": "never",
+            "showPoints": "auto",
+            "pointSize": 4,
             "spanNulls": false,
+            "lineInterpolation": "smooth",
+            "axisBorderShow": false,
+            "axisGridShow": true,
             "stacking": {
               "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
             }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#ef4444",
+                "value": null
+              }
+            ]
           }
         },
         "overrides": []
@@ -590,10 +719,12 @@
       "options": {
         "legend": {
           "displayMode": "list",
-          "placement": "bottom"
+          "placement": "bottom",
+          "calcs": []
         },
         "tooltip": {
-          "mode": "multi"
+          "mode": "multi",
+          "sort": "desc"
         }
       },
       "id": 11,
@@ -607,6 +738,7 @@
     {
       "type": "timeseries",
       "title": "Origin 5xx Overload Ratio",
+      "description": "Percentage of requests resulting in 503 Service Unavailable",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -614,7 +746,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(rate(demo_requests_total{status=~\"5..\"}[1m])) / sum(rate(demo_requests_total[1m]))",
+          "expr": "sum(rate(demo_requests_total{status=~\"5..\"}[$rate_interval])) / clamp_min(sum(rate(demo_requests_total[$rate_interval])), 0.001)",
           "legendFormat": "5xx error ratio",
           "datasource": {
             "type": "prometheus",
@@ -632,13 +764,29 @@
           },
           "custom": {
             "lineWidth": 2,
-            "fillOpacity": 12,
+            "fillOpacity": 16,
             "gradientMode": "opacity",
-            "showPoints": "never",
+            "showPoints": "auto",
+            "pointSize": 4,
             "spanNulls": false,
+            "lineInterpolation": "smooth",
+            "axisBorderShow": false,
+            "axisGridShow": true,
             "stacking": {
               "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
             }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#ef4444",
+                "value": null
+              }
+            ]
           }
         },
         "overrides": []
@@ -646,10 +794,12 @@
       "options": {
         "legend": {
           "displayMode": "list",
-          "placement": "bottom"
+          "placement": "bottom",
+          "calcs": []
         },
         "tooltip": {
-          "mode": "multi"
+          "mode": "multi",
+          "sort": "desc"
         }
       },
       "id": 12,
@@ -662,7 +812,7 @@
     },
     {
       "type": "row",
-      "title": "Alerting Rules",
+      "title": "Alerting Rules & Status",
       "collapsed": false,
       "id": 13,
       "gridPos": {
@@ -675,6 +825,7 @@
     {
       "type": "alertlist",
       "title": "Firing & Pending Alert Rules",
+      "description": "Prometheus alert evaluation state for operational threshold breaches",
       "options": {
         "alertListOptions": {
           "showOptions": "current"
@@ -708,9 +859,53 @@
     }
   ],
   "templating": {
-    "list": []
+    "list": [
+      {
+        "name": "rate_interval",
+        "type": "custom",
+        "label": "Rate Window",
+        "query": "30s,1m,2m,5m",
+        "current": {
+          "text": "1m",
+          "value": "1m",
+          "selected": true
+        },
+        "options": [
+          {
+            "text": "30s",
+            "value": "30s",
+            "selected": false
+          },
+          {
+            "text": "1m",
+            "value": "1m",
+            "selected": true
+          },
+          {
+            "text": "2m",
+            "value": "2m",
+            "selected": false
+          },
+          {
+            "text": "5m",
+            "value": "5m",
+            "selected": false
+          }
+        ],
+        "hide": 0
+      }
+    ]
   },
   "annotations": {
-    "list": []
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": "-- Grafana --",
+        "enable": true,
+        "hide": false,
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
   }
 }

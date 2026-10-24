@@ -4,14 +4,16 @@
   "description": "Latency distributions, percentile curves, and response status codes.",
   "tags": [
     "surgeguard",
-    "observability"
+    "observability",
+    "production",
+    "cloud-security"
   ],
   "timezone": "browser",
   "schemaVersion": 39,
-  "version": 1,
+  "version": 2,
   "refresh": "5s",
   "time": {
-    "from": "now-30m",
+    "from": "now-15m",
     "to": "now"
   },
   "editable": false,
@@ -19,7 +21,7 @@
   "panels": [
     {
       "type": "row",
-      "title": "Origin Execution Duration",
+      "title": "Origin Execution Duration & Percentile Curves",
       "collapsed": false,
       "id": 1,
       "gridPos": {
@@ -32,6 +34,7 @@
     {
       "type": "stat",
       "title": "Median Latency (p50)",
+      "description": "50% of origin requests complete faster than this",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -39,7 +42,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "histogram_quantile(0.50, sum by (le) (rate(demo_request_duration_seconds_bucket[1m])))",
+          "expr": "histogram_quantile(0.50, sum by (le) (rate(demo_request_duration_seconds_bucket[$rate_interval])))",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -49,10 +52,14 @@
       "options": {
         "colorMode": "value",
         "graphMode": "area",
+        "textMode": "auto",
+        "orientation": "auto",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
-          ]
+          ],
+          "fields": "",
+          "values": false
         }
       },
       "fieldConfig": {
@@ -62,13 +69,13 @@
           "noValue": "no data",
           "color": {
             "mode": "fixed",
-            "fixedColor": "#22c55e"
+            "fixedColor": "#10b981"
           },
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
-                "color": "#22c55e",
+                "color": "#10b981",
                 "value": null
               }
             ]
@@ -87,6 +94,7 @@
     {
       "type": "stat",
       "title": "p95 Latency",
+      "description": "95th percentile latency of backend origin execution",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -94,7 +102,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "histogram_quantile(0.95, sum by (le) (rate(demo_request_duration_seconds_bucket[1m])))",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(demo_request_duration_seconds_bucket[$rate_interval])))",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -104,10 +112,14 @@
       "options": {
         "colorMode": "value",
         "graphMode": "area",
+        "textMode": "auto",
+        "orientation": "auto",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
-          ]
+          ],
+          "fields": "",
+          "values": false
         }
       },
       "fieldConfig": {
@@ -142,6 +154,7 @@
     {
       "type": "stat",
       "title": "Tail Latency (p99)",
+      "description": "99th percentile worst-case execution duration",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -149,7 +162,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "histogram_quantile(0.99, sum by (le) (rate(demo_request_duration_seconds_bucket[1m])))",
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(demo_request_duration_seconds_bucket[$rate_interval])))",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -159,10 +172,14 @@
       "options": {
         "colorMode": "value",
         "graphMode": "area",
+        "textMode": "auto",
+        "orientation": "auto",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
-          ]
+          ],
+          "fields": "",
+          "values": false
         }
       },
       "fieldConfig": {
@@ -195,8 +212,9 @@
       }
     },
     {
-      "type": "stat",
+      "type": "gauge",
       "title": "Origin Error Ratio",
+      "description": "Percentage of origin responses returning 5xx status codes",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -204,7 +222,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(rate(demo_requests_total{status=~\"5..\"}[1m])) / sum(rate(demo_requests_total[1m]))",
+          "expr": "sum(rate(demo_requests_total{status=~\"5..\"}[$rate_interval])) / clamp_min(sum(rate(demo_requests_total[$rate_interval])), 0.001)",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -212,29 +230,39 @@
         }
       ],
       "options": {
-        "colorMode": "value",
-        "graphMode": "area",
+        "orientation": "auto",
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true,
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
-          ]
+          ],
+          "values": false
         }
       },
       "fieldConfig": {
         "defaults": {
+          "min": 0,
+          "max": 0.2,
           "unit": "percentunit",
-          "decimals": 1,
           "noValue": "no data",
           "color": {
-            "mode": "fixed",
-            "fixedColor": "#ef4444"
+            "mode": "thresholds"
           },
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
-                "color": "#ef4444",
+                "color": "#10b981",
                 "value": null
+              },
+              {
+                "color": "#f59e0b",
+                "value": 0.02
+              },
+              {
+                "color": "#ef4444",
+                "value": 0.05
               }
             ]
           }
@@ -251,7 +279,8 @@
     },
     {
       "type": "timeseries",
-      "title": "Origin Latency Distributions",
+      "title": "Origin Latency Distributions (p50, p95, p99)",
+      "description": "Complete percentile latency profile of backend request handling",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -259,7 +288,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "histogram_quantile(0.50, sum by (le) (rate(demo_request_duration_seconds_bucket[1m])))",
+          "expr": "histogram_quantile(0.50, sum by (le) (rate(demo_request_duration_seconds_bucket[$rate_interval])))",
           "legendFormat": "p50 median",
           "datasource": {
             "type": "prometheus",
@@ -268,7 +297,7 @@
         },
         {
           "refId": "B",
-          "expr": "histogram_quantile(0.95, sum by (le) (rate(demo_request_duration_seconds_bucket[1m])))",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(demo_request_duration_seconds_bucket[$rate_interval])))",
           "legendFormat": "p95 percentile",
           "datasource": {
             "type": "prometheus",
@@ -277,7 +306,7 @@
         },
         {
           "refId": "C",
-          "expr": "histogram_quantile(0.99, sum by (le) (rate(demo_request_duration_seconds_bucket[1m])))",
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(demo_request_duration_seconds_bucket[$rate_interval])))",
           "legendFormat": "p99 tail latency",
           "datasource": {
             "type": "prometheus",
@@ -294,24 +323,50 @@
           },
           "custom": {
             "lineWidth": 2,
-            "fillOpacity": 12,
+            "fillOpacity": 16,
             "gradientMode": "opacity",
-            "showPoints": "never",
+            "showPoints": "auto",
+            "pointSize": 4,
             "spanNulls": false,
+            "lineInterpolation": "smooth",
+            "axisBorderShow": false,
+            "axisGridShow": true,
             "stacking": {
               "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "line"
             }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#f59e0b",
+                "value": 0.5
+              },
+              {
+                "color": "#ef4444",
+                "value": 1.0
+              }
+            ]
           }
         },
         "overrides": []
       },
       "options": {
         "legend": {
-          "displayMode": "list",
-          "placement": "bottom"
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ]
         },
         "tooltip": {
-          "mode": "multi"
+          "mode": "multi",
+          "sort": "desc"
         }
       },
       "id": 6,
@@ -325,6 +380,7 @@
     {
       "type": "timeseries",
       "title": "Origin Responses by Status Class",
+      "description": "HTTP status response codes emitted by backend origin instances",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -332,8 +388,8 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (status) (rate(demo_requests_total[1m]))",
-          "legendFormat": "status {{status}}",
+          "expr": "sum by (status) (rate(demo_requests_total{origin=~\"$origin\"}[$rate_interval]))",
+          "legendFormat": "HTTP {{status}}",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -346,17 +402,33 @@
           "noValue": "no data",
           "color": {
             "mode": "fixed",
-            "fixedColor": "#ff9900"
+            "fixedColor": "#06b6d4"
           },
           "custom": {
             "lineWidth": 2,
-            "fillOpacity": 12,
+            "fillOpacity": 16,
             "gradientMode": "opacity",
-            "showPoints": "never",
+            "showPoints": "auto",
+            "pointSize": 4,
             "spanNulls": false,
+            "lineInterpolation": "smooth",
+            "axisBorderShow": false,
+            "axisGridShow": true,
             "stacking": {
               "mode": "normal"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
             }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#06b6d4",
+                "value": null
+              }
+            ]
           }
         },
         "overrides": []
@@ -364,10 +436,12 @@
       "options": {
         "legend": {
           "displayMode": "list",
-          "placement": "bottom"
+          "placement": "bottom",
+          "calcs": []
         },
         "tooltip": {
-          "mode": "multi"
+          "mode": "multi",
+          "sort": "desc"
         }
       },
       "id": 7,
@@ -380,7 +454,7 @@
     },
     {
       "type": "row",
-      "title": "API Latency & Response Profiles",
+      "title": "SurgeGuard API Latency & Health",
       "collapsed": false,
       "id": 8,
       "gridPos": {
@@ -393,6 +467,7 @@
     {
       "type": "timeseries",
       "title": "SurgeGuard API Latency (p95 by Route)",
+      "description": "Internal API endpoint processing duration at 95th percentile",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -400,8 +475,8 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "histogram_quantile(0.95, sum by (le, route) (rate(surgeguard_http_request_duration_seconds_bucket[1m])))",
-          "legendFormat": "{{route}}",
+          "expr": "histogram_quantile(0.95, sum by (le, route) (rate(surgeguard_http_request_duration_seconds_bucket[$rate_interval])))",
+          "legendFormat": "route: {{route}}",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -414,17 +489,33 @@
           "noValue": "no data",
           "color": {
             "mode": "fixed",
-            "fixedColor": "#ff9900"
+            "fixedColor": "#06b6d4"
           },
           "custom": {
             "lineWidth": 2,
-            "fillOpacity": 12,
+            "fillOpacity": 16,
             "gradientMode": "opacity",
-            "showPoints": "never",
+            "showPoints": "auto",
+            "pointSize": 4,
             "spanNulls": false,
+            "lineInterpolation": "smooth",
+            "axisBorderShow": false,
+            "axisGridShow": true,
             "stacking": {
               "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
             }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#06b6d4",
+                "value": null
+              }
+            ]
           }
         },
         "overrides": []
@@ -432,10 +523,12 @@
       "options": {
         "legend": {
           "displayMode": "list",
-          "placement": "bottom"
+          "placement": "bottom",
+          "calcs": []
         },
         "tooltip": {
-          "mode": "multi"
+          "mode": "multi",
+          "sort": "desc"
         }
       },
       "id": 9,
@@ -448,7 +541,8 @@
     },
     {
       "type": "timeseries",
-      "title": "SurgeGuard API Responses by Status",
+      "title": "SurgeGuard API Responses by Status Code",
+      "description": "Status code distribution for SurgeGuard internal API endpoints",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -456,8 +550,8 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (status) (rate(surgeguard_http_requests_total[1m]))",
-          "legendFormat": "{{status}}",
+          "expr": "sum by (status) (rate(surgeguard_http_requests_total[$rate_interval]))",
+          "legendFormat": "status: {{status}}",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -470,17 +564,33 @@
           "noValue": "no data",
           "color": {
             "mode": "fixed",
-            "fixedColor": "#ff9900"
+            "fixedColor": "#06b6d4"
           },
           "custom": {
             "lineWidth": 2,
-            "fillOpacity": 12,
+            "fillOpacity": 16,
             "gradientMode": "opacity",
-            "showPoints": "never",
+            "showPoints": "auto",
+            "pointSize": 4,
             "spanNulls": false,
+            "lineInterpolation": "smooth",
+            "axisBorderShow": false,
+            "axisGridShow": true,
             "stacking": {
               "mode": "normal"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
             }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#06b6d4",
+                "value": null
+              }
+            ]
           }
         },
         "overrides": []
@@ -488,10 +598,12 @@
       "options": {
         "legend": {
           "displayMode": "list",
-          "placement": "bottom"
+          "placement": "bottom",
+          "calcs": []
         },
         "tooltip": {
-          "mode": "multi"
+          "mode": "multi",
+          "sort": "desc"
         }
       },
       "id": 10,
@@ -504,9 +616,73 @@
     }
   ],
   "templating": {
-    "list": []
+    "list": [
+      {
+        "name": "origin",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "label": "Origin Instance",
+        "query": "label_values(demo_requests_total, origin)",
+        "includeAll": true,
+        "allValue": ".*",
+        "multi": true,
+        "refresh": 1,
+        "current": {
+          "text": "All",
+          "value": "$__all",
+          "selected": true
+        },
+        "hide": 0
+      },
+      {
+        "name": "rate_interval",
+        "type": "custom",
+        "label": "Rate Window",
+        "query": "30s,1m,2m,5m",
+        "current": {
+          "text": "1m",
+          "value": "1m",
+          "selected": true
+        },
+        "options": [
+          {
+            "text": "30s",
+            "value": "30s",
+            "selected": false
+          },
+          {
+            "text": "1m",
+            "value": "1m",
+            "selected": true
+          },
+          {
+            "text": "2m",
+            "value": "2m",
+            "selected": false
+          },
+          {
+            "text": "5m",
+            "value": "5m",
+            "selected": false
+          }
+        ],
+        "hide": 0
+      }
+    ]
   },
   "annotations": {
-    "list": []
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": "-- Grafana --",
+        "enable": true,
+        "hide": false,
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
   }
 }
