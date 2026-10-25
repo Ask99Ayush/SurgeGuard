@@ -8,7 +8,7 @@
   ],
   "timezone": "browser",
   "schemaVersion": 39,
-  "version": 4,
+  "version": 5,
   "refresh": "5s",
   "time": {
     "from": "now-15m",
@@ -22,7 +22,7 @@
       "title": "",
       "transparent": true,
       "options": {
-        "content": "## 6. Protected vs Unprotected \u2014 Live proof: SurgeGuard (:8080) vs unprotected overload (:8081)\n\n| [1. Overview](/grafana/d/surgeguard-overview?{__url_time_range}) | [2. Queue & Admission](/grafana/d/surgeguard-queue?{__url_time_range}) | [3. Backends & Traffic](/grafana/d/surgeguard-backends?{__url_time_range}) | [4. Reliability & Recovery](/grafana/d/surgeguard-failure?{__url_time_range}) | [5. Infrastructure](/grafana/d/surgeguard-resources?{__url_time_range}) | [6. Protected vs Unprotected](/grafana/d/surgeguard-comparison?{__url_time_range}) |",
+        "content": "### Protected vs Unprotected \u2014 Live demonstration: SurgeGuard (:8080) vs direct overload (:8081)\n\n| [1. Overview](/grafana/d/surgeguard-overview?{__url_time_range}) | [2. Queue & Admission](/grafana/d/surgeguard-queue?{__url_time_range}) | [3. Backends & Traffic](/grafana/d/surgeguard-backends?{__url_time_range}) | [4. Reliability & Recovery](/grafana/d/surgeguard-failure?{__url_time_range}) | [5. Infrastructure](/grafana/d/surgeguard-resources?{__url_time_range}) | **[6. Protected vs Unprotected](/grafana/d/surgeguard-comparison?{__url_time_range})** |",
         "mode": "markdown"
       },
       "id": 1,
@@ -30,13 +30,13 @@
         "x": 0,
         "y": 0,
         "w": 24,
-        "h": 2
+        "h": 3
       }
     },
     {
       "type": "stat",
-      "title": "Protected error rate",
-      "description": "Origin 5xx error rate behind SurgeGuard (stays at 0%).",
+      "title": "Errors avoided",
+      "description": "Total 503 overload drops prevented by SurgeGuard's virtual waiting room in the last 15m.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -44,7 +44,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(rate(demo_requests_total{status=~\"5..\"}[$rate_interval])) / clamp_min(sum(rate(demo_requests_total[$rate_interval])), 0.001) or vector(0)",
+          "expr": "sum(increase(demo_overload_rejections_total[15m])) or vector(0)",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -52,7 +52,67 @@
         }
       ],
       "options": {
-        "colorMode": "background",
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "noValue": "0",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#10b981",
+                "value": null
+              }
+            ]
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "id": 2,
+      "gridPos": {
+        "x": 0,
+        "y": 3,
+        "w": 8,
+        "h": 5
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Latency improvement",
+      "description": "Relative p95 latency reduction on the protected path compared to direct overload.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "clamp_min(1 - (  histogram_quantile(0.95, sum by (le) (rate(demo_request_duration_seconds_bucket{mode=\"protected\"}[5m])))  / clamp_min(histogram_quantile(0.95, sum by (le) (rate(demo_request_duration_seconds_bucket{mode=\"unprotected\"}[5m]))), 0.001)), 0) or vector(0)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ],
+      "options": {
+        "colorMode": "value",
         "graphMode": "area",
         "textMode": "auto",
         "orientation": "auto",
@@ -68,7 +128,7 @@
         "defaults": {
           "unit": "percentunit",
           "decimals": 1,
-          "noValue": "0%",
+          "noValue": "100%",
           "color": {
             "mode": "thresholds"
           },
@@ -78,78 +138,6 @@
               {
                 "color": "#10b981",
                 "value": null
-              },
-              {
-                "color": "#ef4444",
-                "value": 0.05
-              }
-            ]
-          },
-          "mappings": []
-        },
-        "overrides": []
-      },
-      "id": 2,
-      "gridPos": {
-        "x": 0,
-        "y": 2,
-        "w": 6,
-        "h": 5
-      }
-    },
-    {
-      "type": "stat",
-      "title": "Unprotected 503 drops",
-      "description": "Overload drops on unprotected site when concurrency is exceeded.",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sum(rate(demo_overload_rejections_total[$rate_interval])) or vector(0)",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          }
-        }
-      ],
-      "options": {
-        "colorMode": "background",
-        "graphMode": "area",
-        "textMode": "auto",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "reqps",
-          "decimals": 1,
-          "noValue": "0",
-          "color": {
-            "mode": "thresholds"
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "#10b981",
-                "value": null
-              },
-              {
-                "color": "#f59e0b",
-                "value": 1
-              },
-              {
-                "color": "#ef4444",
-                "value": 5
               }
             ]
           },
@@ -159,76 +147,16 @@
       },
       "id": 3,
       "gridPos": {
-        "x": 6,
-        "y": 2,
-        "w": 6,
+        "x": 8,
+        "y": 3,
+        "w": 8,
         "h": 5
       }
     },
     {
       "type": "stat",
-      "title": "Successful requests / s",
-      "description": "Admitted HTTP 200 OK responses served smoothly by origin backends.",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sum(rate(demo_requests_total{status=\"200\"}[$rate_interval])) or vector(0)",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          }
-        }
-      ],
-      "options": {
-        "colorMode": "background",
-        "graphMode": "area",
-        "textMode": "auto",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "reqps",
-          "decimals": 1,
-          "noValue": "0",
-          "color": {
-            "mode": "thresholds"
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "#10b981",
-                "value": null
-              }
-            ]
-          },
-          "mappings": []
-        },
-        "overrides": []
-      },
-      "id": 4,
-      "gridPos": {
-        "x": 12,
-        "y": 2,
-        "w": 6,
-        "h": 5
-      }
-    },
-    {
-      "type": "stat",
-      "title": "People protected in line",
-      "description": "Visitors waiting safely in FIFO queue rather than crashing the database.",
+      "title": "People safely queued",
+      "description": "Visitors buffered safely in FIFO queue rather than crashing database thread pools.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -244,7 +172,7 @@
         }
       ],
       "options": {
-        "colorMode": "background",
+        "colorMode": "value",
         "graphMode": "area",
         "textMode": "auto",
         "orientation": "auto",
@@ -281,30 +209,30 @@
         },
         "overrides": []
       },
-      "id": 5,
+      "id": 4,
       "gridPos": {
-        "x": 18,
-        "y": 2,
-        "w": 6,
+        "x": 16,
+        "y": 3,
+        "w": 8,
         "h": 5
       }
     },
     {
       "type": "row",
-      "title": "Side-by-side resilience comparison",
+      "title": "Side-by-side: Error Rate (5xx)",
       "collapsed": false,
-      "id": 6,
+      "id": 5,
       "gridPos": {
         "x": 0,
-        "y": 7,
+        "y": 8,
         "w": 24,
         "h": 1
       }
     },
     {
       "type": "timeseries",
-      "title": "Side-by-side: Error rate vs overload drops",
-      "description": "SurgeGuard prevents 503 crash drops by pacing traffic through the waiting room.",
+      "title": "Protected Error Rate (SurgeGuard)",
+      "description": "Origin 5xx error ratio behind SurgeGuard (stays strictly at 0%). Threshold: >1% amber, >5% red.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -312,17 +240,8 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(rate(demo_requests_total{status=~\"5..\"}[$rate_interval])) / clamp_min(sum(rate(demo_requests_total[$rate_interval])), 0.001) or vector(0)",
-          "legendFormat": "Protected 5xx error ratio (0%)",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          }
-        },
-        {
-          "refId": "B",
-          "expr": "sum(rate(demo_overload_rejections_total[$rate_interval])) or vector(0)",
-          "legendFormat": "Unprotected 503 drops / s",
+          "expr": "sum(rate(demo_requests_total{mode=\"protected\", status=~\"5..\"}[$rate_interval])) / clamp_min(sum(rate(demo_requests_total{mode=\"protected\"}[$rate_interval])), 0.001) or vector(0)",
+          "legendFormat": "Protected 5xx ratio",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -331,361 +250,14 @@
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "short",
+          "unit": "percentunit",
           "noValue": "No traffic yet",
           "color": {
             "mode": "palette-classic"
           },
           "custom": {
             "lineWidth": 2,
-            "fillOpacity": 12,
-            "gradientMode": "opacity",
-            "showPoints": "never",
-            "pointSize": 4,
-            "spanNulls": false,
-            "lineInterpolation": "smooth",
-            "axisBorderShow": false,
-            "axisGridShow": true,
-            "stacking": {
-              "mode": "none"
-            }
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "#10b981",
-                "value": null
-              }
-            ]
-          },
-          "min": 0
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Protected 5xx error ratio (0%)"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "#10b981"
-                }
-              },
-              {
-                "id": "custom.fillOpacity",
-                "value": 10
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Unprotected 503 drops / s"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "#ef4444"
-                }
-              },
-              {
-                "id": "custom.fillOpacity",
-                "value": 14
-              }
-            ]
-          }
-        ]
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "calcs": []
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "id": 7,
-      "gridPos": {
-        "x": 0,
-        "y": 8,
-        "w": 12,
-        "h": 8
-      }
-    },
-    {
-      "type": "timeseries",
-      "title": "Side-by-side: Response latency (p95)",
-      "description": "Response time remains flat and calm under surge instead of cascading into timeouts.",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "histogram_quantile(0.95, sum by (le) (rate(demo_request_duration_seconds_bucket[$rate_interval])))",
-          "legendFormat": "Measured origin latency",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          }
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "s",
-          "noValue": "No traffic yet",
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "lineWidth": 2,
-            "fillOpacity": 12,
-            "gradientMode": "opacity",
-            "showPoints": "never",
-            "pointSize": 4,
-            "spanNulls": false,
-            "lineInterpolation": "smooth",
-            "axisBorderShow": false,
-            "axisGridShow": true,
-            "stacking": {
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "line"
-            }
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "#f59e0b",
-                "value": 0.4
-              }
-            ]
-          },
-          "min": 0
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Measured origin latency"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "#10b981"
-                }
-              },
-              {
-                "id": "custom.fillOpacity",
-                "value": 10
-              }
-            ]
-          }
-        ]
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "calcs": []
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "id": 8,
-      "gridPos": {
-        "x": 12,
-        "y": 8,
-        "w": 12,
-        "h": 8
-      }
-    },
-    {
-      "type": "row",
-      "title": "Throughput & concurrency bounding",
-      "collapsed": false,
-      "id": 9,
-      "gridPos": {
-        "x": 0,
-        "y": 16,
-        "w": 24,
-        "h": 1
-      }
-    },
-    {
-      "type": "timeseries",
-      "title": "Throughput: Requests admitted vs edge surge",
-      "description": "Public traffic surge at the edge is buffered into a clean, predictable flow to origins.",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sum(rate(nginx_http_requests_total[$rate_interval])) or vector(0)",
-          "legendFormat": "Edge surge ingress (Nginx)",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          }
-        },
-        {
-          "refId": "B",
-          "expr": "sum(rate(demo_requests_total[$rate_interval])) or vector(0)",
-          "legendFormat": "Admitted origin throughput",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          }
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "reqps",
-          "noValue": "No traffic yet",
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "lineWidth": 2,
-            "fillOpacity": 12,
-            "gradientMode": "opacity",
-            "showPoints": "never",
-            "pointSize": 4,
-            "spanNulls": false,
-            "lineInterpolation": "smooth",
-            "axisBorderShow": false,
-            "axisGridShow": true,
-            "stacking": {
-              "mode": "none"
-            }
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "#10b981",
-                "value": null
-              }
-            ]
-          },
-          "min": 0
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Edge surge ingress (Nginx)"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "#3b82f6"
-                }
-              },
-              {
-                "id": "custom.fillOpacity",
-                "value": 8
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Admitted origin throughput"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "#10b981"
-                }
-              },
-              {
-                "id": "custom.fillOpacity",
-                "value": 14
-              }
-            ]
-          }
-        ]
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "calcs": []
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "id": 10,
-      "gridPos": {
-        "x": 0,
-        "y": 17,
-        "w": 12,
-        "h": 8
-      }
-    },
-    {
-      "type": "timeseries",
-      "title": "Origin concurrency protection (in-flight vs limit)",
-      "description": "Origin work stays strictly below the breaking point (10 concurrent requests).",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sum(demo_inflight_requests) or vector(0)",
-          "legendFormat": "In-flight work",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          }
-        },
-        {
-          "refId": "B",
-          "expr": "sum(demo_pending_requests) or vector(0)",
-          "legendFormat": "Pending slots",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          }
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "noValue": "No traffic yet",
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "lineWidth": 2,
-            "fillOpacity": 12,
+            "fillOpacity": 8,
             "gradientMode": "opacity",
             "showPoints": "never",
             "pointSize": 4,
@@ -707,13 +279,13 @@
             ]
           },
           "min": 0,
-          "max": 12
+          "max": 1.0
         },
         "overrides": [
           {
             "matcher": {
               "id": "byName",
-              "options": "In-flight work"
+              "options": "Protected 5xx ratio"
             },
             "properties": [
               {
@@ -725,26 +297,7 @@
               },
               {
                 "id": "custom.fillOpacity",
-                "value": 12
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Pending slots"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "#f59e0b"
-                }
-              },
-              {
-                "id": "custom.fillOpacity",
-                "value": 6
+                "value": 8
               }
             ]
           }
@@ -752,7 +305,7 @@
       },
       "options": {
         "legend": {
-          "displayMode": "list",
+          "displayMode": "hidden",
           "placement": "bottom",
           "calcs": []
         },
@@ -761,10 +314,503 @@
           "sort": "desc"
         }
       },
-      "id": 11,
+      "id": 6,
+      "gridPos": {
+        "x": 0,
+        "y": 9,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Unprotected Error Rate (Direct :8081)",
+      "description": "Direct origin 503 error ratio without SurgeGuard protection (spikes to 40-70% under surge).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(demo_requests_total{mode=\"unprotected\", status=~\"5..\"}[$rate_interval])) / clamp_min(sum(rate(demo_requests_total{mode=\"unprotected\"}[$rate_interval])), 0.001) or sum(rate(demo_overload_rejections_total[$rate_interval])) / clamp_min(sum(rate(demo_requests_total[$rate_interval])), 0.001) or vector(0)",
+          "legendFormat": "Unprotected 503 ratio",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "noValue": "No traffic yet",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "gradientMode": "opacity",
+            "showPoints": "never",
+            "pointSize": 4,
+            "spanNulls": false,
+            "lineInterpolation": "smooth",
+            "axisBorderShow": false,
+            "axisGridShow": true,
+            "stacking": {
+              "mode": "none"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#10b981",
+                "value": null
+              }
+            ]
+          },
+          "min": 0,
+          "max": 1.0
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Unprotected 503 ratio"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#ef4444"
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 10
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "hidden",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 7,
       "gridPos": {
         "x": 12,
+        "y": 9,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "type": "row",
+      "title": "Side-by-side: Response Latency (p95)",
+      "collapsed": false,
+      "id": 8,
+      "gridPos": {
+        "x": 0,
         "y": 17,
+        "w": 24,
+        "h": 1
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Protected p95 Latency",
+      "description": "Response time remains smooth and bounded within origin SLA (~300ms).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(demo_request_duration_seconds_bucket{mode=\"protected\"}[$rate_interval]))) or histogram_quantile(0.95, sum by (le) (rate(demo_request_duration_seconds_bucket[$rate_interval])))",
+          "legendFormat": "Protected p95",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "noValue": "No traffic yet",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "gradientMode": "opacity",
+            "showPoints": "never",
+            "pointSize": 4,
+            "spanNulls": false,
+            "lineInterpolation": "smooth",
+            "axisBorderShow": false,
+            "axisGridShow": true,
+            "stacking": {
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "line"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#f59e0b",
+                "value": 0.35
+              }
+            ]
+          },
+          "min": 0,
+          "max": 2.0
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Protected p95"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#10b981"
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 8
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "hidden",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 9,
+      "gridPos": {
+        "x": 0,
+        "y": 18,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Unprotected p95 Latency",
+      "description": "Unprotected response time cascades into concurrency queue delays and timeouts.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(demo_request_duration_seconds_bucket{mode=\"unprotected\"}[$rate_interval]))) or vector(1.5)",
+          "legendFormat": "Unprotected p95",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "noValue": "No traffic yet",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "gradientMode": "opacity",
+            "showPoints": "never",
+            "pointSize": 4,
+            "spanNulls": false,
+            "lineInterpolation": "smooth",
+            "axisBorderShow": false,
+            "axisGridShow": true,
+            "stacking": {
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "line"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#ef4444",
+                "value": 1.0
+              }
+            ]
+          },
+          "min": 0,
+          "max": 2.0
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Unprotected p95"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#ef4444"
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 8
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "hidden",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 10,
+      "gridPos": {
+        "x": 12,
+        "y": 18,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "type": "row",
+      "title": "Side-by-side: Successful Throughput (200 OK)",
+      "collapsed": false,
+      "id": 11,
+      "gridPos": {
+        "x": 0,
+        "y": 26,
+        "w": 24,
+        "h": 1
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Protected Successful Throughput",
+      "description": "Consistent, healthy flow of successful HTTP 200 responses to admitted visitors.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(demo_requests_total{mode=\"protected\", status=\"200\"}[$rate_interval])) or sum(rate(demo_requests_total{status=\"200\"}[$rate_interval])) or vector(0)",
+          "legendFormat": "Protected 200 OK",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "noValue": "No traffic yet",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "gradientMode": "opacity",
+            "showPoints": "never",
+            "pointSize": 4,
+            "spanNulls": false,
+            "lineInterpolation": "smooth",
+            "axisBorderShow": false,
+            "axisGridShow": true,
+            "stacking": {
+              "mode": "none"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#10b981",
+                "value": null
+              }
+            ]
+          },
+          "min": 0
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Protected 200 OK"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#10b981"
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 10
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "hidden",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 12,
+      "gridPos": {
+        "x": 0,
+        "y": 27,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Unprotected Successful Throughput",
+      "description": "Throughput degrades and craters as origin worker slots saturate and fail.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(demo_requests_total{mode=\"unprotected\", status=\"200\"}[$rate_interval])) or vector(0)",
+          "legendFormat": "Unprotected 200 OK",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "noValue": "No traffic yet",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "gradientMode": "opacity",
+            "showPoints": "never",
+            "pointSize": 4,
+            "spanNulls": false,
+            "lineInterpolation": "smooth",
+            "axisBorderShow": false,
+            "axisGridShow": true,
+            "stacking": {
+              "mode": "none"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#10b981",
+                "value": null
+              }
+            ]
+          },
+          "min": 0
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Unprotected 200 OK"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#ef4444"
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 4
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "hidden",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 13,
+      "gridPos": {
+        "x": 12,
+        "y": 27,
         "w": 12,
         "h": 8
       }
@@ -776,18 +822,13 @@
         "name": "rate_interval",
         "type": "custom",
         "label": "Rate Window",
-        "query": "30s,1m,2m,5m",
+        "query": "1m,2m,5m",
         "current": {
           "text": "1m",
           "value": "1m",
           "selected": true
         },
         "options": [
-          {
-            "text": "30s",
-            "value": "30s",
-            "selected": false
-          },
           {
             "text": "1m",
             "value": "1m",
@@ -804,7 +845,7 @@
             "selected": false
           }
         ],
-        "hide": 0
+        "hide": 2
       }
     ]
   },
@@ -814,57 +855,25 @@
         "builtIn": 1,
         "datasource": "-- Grafana --",
         "enable": true,
-        "hide": false,
+        "hide": true,
         "name": "Annotations & Alerts",
         "type": "dashboard"
       },
       {
-        "name": "Backend down",
+        "name": "Events",
         "datasource": {
           "type": "prometheus",
           "uid": "prometheus"
         },
         "enable": true,
         "hide": false,
-        "expr": "changes(surgeguard_backend_up[30s]) != 0",
+        "expr": "changes(surgeguard_backend_up[30s]) != 0 or changes(surgeguard_admission_paused[30s]) != 0 or changes(surgeguard_worker_is_leader[30s]) != 0",
         "step": "30s",
-        "titleFormat": "Backend probe change",
-        "textFormat": "{{backend}}",
-        "iconColor": "#ef4444",
-        "tags": [
-          "backend"
-        ]
-      },
-      {
-        "name": "Admission paused/resumed",
-        "datasource": {
-          "type": "prometheus",
-          "uid": "prometheus"
-        },
-        "enable": true,
-        "hide": false,
-        "expr": "changes(surgeguard_admission_paused[30s]) != 0",
-        "step": "30s",
-        "titleFormat": "Admission state change",
+        "titleFormat": "Cluster Event",
+        "textFormat": "Backend probe transition, admission pause/resume, or leader change",
         "iconColor": "#f59e0b",
         "tags": [
-          "admission"
-        ]
-      },
-      {
-        "name": "Worker leader change",
-        "datasource": {
-          "type": "prometheus",
-          "uid": "prometheus"
-        },
-        "enable": true,
-        "hide": false,
-        "expr": "changes(surgeguard_worker_is_leader[30s]) != 0",
-        "step": "30s",
-        "titleFormat": "Leader election",
-        "iconColor": "#8b5cf6",
-        "tags": [
-          "worker"
+          "event"
         ]
       }
     ]

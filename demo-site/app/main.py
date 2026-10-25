@@ -54,12 +54,14 @@ if len(ORIGIN_KEY) < 16:
 
 # ─── Prometheus Metrics ──────────────────────────────────────────────────────
 REQUESTS = Counter(
-    "demo_requests_total", "Requests handled by the demo origin", ["origin", "status"]
+    "demo_requests_total",
+    "Requests handled by the demo origin",
+    ["origin", "status", "mode"],
 )
 LATENCY = Histogram(
     "demo_request_duration_seconds",
     "End-to-end latency inside the demo origin",
-    ["origin"],
+    ["origin", "mode"],
     buckets=(0.05, 0.1, 0.2, 0.3, 0.5, 0.75, 1, 1.5, 2, 3, 5, 10),
 )
 INFLIGHT = Gauge("demo_inflight_requests", "Requests currently doing work", ["origin"])
@@ -67,7 +69,7 @@ PENDING = Gauge("demo_pending_requests", "Requests waiting for a work slot", ["o
 OVERLOAD = Counter(
     "demo_overload_rejections_total",
     "Requests rejected because the origin was saturated",
-    ["origin"],
+    ["origin", "mode"],
 )
 FORBIDDEN = Counter(
     "demo_forbidden_total", "Requests without a valid origin key", ["origin"]
@@ -784,15 +786,18 @@ async def guard(request: Request, call_next):  # type: ignore[no-untyped-def]
     if request.url.path.startswith("/static/"):
         return await call_next(request)
 
+    is_protected = bool(request.headers.get("x-sg-visitor")) or request.headers.get("x-forwarded-port") == "8080"
+    mode = "protected" if is_protected else "unprotected"
+
     started = time.perf_counter()
     PENDING.labels(INSTANCE).inc()
     try:
         await asyncio.wait_for(slots.acquire(), timeout=QUEUE_TIMEOUT_MS / 1000)
     except TimeoutError:
         PENDING.labels(INSTANCE).dec()
-        OVERLOAD.labels(INSTANCE).inc()
-        REQUESTS.labels(INSTANCE, "503").inc()
-        LATENCY.labels(INSTANCE).observe(time.perf_counter() - started)
+        OVERLOAD.labels(INSTANCE, mode).inc()
+        REQUESTS.labels(INSTANCE, "503", mode).inc()
+        LATENCY.labels(INSTANCE, mode).observe(time.perf_counter() - started)
         # Return realistic, friendly 503 HTML error page
         return HTMLResponse(
             render_503_page(INSTANCE, MAX_CONCURRENCY),
@@ -811,8 +816,8 @@ async def guard(request: Request, call_next):  # type: ignore[no-untyped-def]
         slots.release()
 
     response.headers["X-Served-By"] = INSTANCE
-    REQUESTS.labels(INSTANCE, str(response.status_code)).inc()
-    LATENCY.labels(INSTANCE).observe(time.perf_counter() - started)
+    REQUESTS.labels(INSTANCE, str(response.status_code), mode).inc()
+    LATENCY.labels(INSTANCE, mode).observe(time.perf_counter() - started)
     return response
 
 

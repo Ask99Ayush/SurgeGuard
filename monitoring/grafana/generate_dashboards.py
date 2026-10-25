@@ -7,19 +7,26 @@
 Design principles applied:
 ───────────────────────────────────────────
 • Clear story, one question per dashboard:
-  1. Overview: Health at a glance (6 big stat tiles + 4 core time series + scrape grid)
-  2. Queue & Admission: Queue mechanics, wait time percentiles, token security
-  3. Backends & Traffic: Per-origin load, connection states, latency, 5xx, bypass
+  1. Overview: Health at a glance (6 flat dark stat tiles + 2 core charts + collapsed Components table)
+  2. Queue & Admission: Queue mechanics, measured vs configured (dashed) vs effective rate, wait time percentiles
+  3. Backends & Traffic: Per-origin load, connection states, latency, 5xx, 403 bypass drops
   4. Reliability & Recovery: Fail-closed auth, auto-pause, worker leadership, alerts
-  5. Infrastructure: Redis memory/latency, worker loop staleness, CPU/RSS
-  6. Protected vs Unprotected: Side-by-side error rate, latency, and throughput for demos
-• Consistent palette: BLUE=traffic/edge, GREEN=healthy/admitted, AMBER=queue/warning,
-  RED=errors only, PURPLE=tail latency, SLATE=policy lines (dashed).
-• Panel quality: Plain titles, 1-line description tooltips, correct units (reqps, ms, %, s),
-  safe idle expressions with `or vector(0)` / `noValue="No traffic yet"`.
-• Dashboard defaults: time=15m, refresh=5s, shared crosshairs, event annotations.
-• Max ~12 panels per dashboard with clean row headers.
-• Preserved UIDs so all existing operator console links remain valid.
+  5. Infrastructure: Redis memory & latency (ms), worker loop staleness, CPU & RSS
+  6. Protected vs Unprotected: Hero live demo comparison with identical two-column scales and 3 top KPI tiles
+• Clean top toolbar:
+  - Header height h=3 so title and nav links are never clipped.
+  - Active dashboard highlighted in bold in the nav bar.
+  - Rate Window variable hidden from toolbar (fixed at 1m).
+  - Origin Instance variable shown ONLY on Backends & Traffic dashboard where it functions.
+  - Single unified "Events" toggle for annotations (replaces crowded 4-toggle toolbar).
+• Flat dark stat cards:
+  - colorMode="value" so values are colored green/amber/red while cards stay calm and dark.
+  - No odd filled sparkline on "Healthy backends" (graphMode="none").
+  - Panel links on all overview tiles deep-linking to corresponding drilldown dashboards.
+• Real metrics only:
+  - Filtered edge requests: clamp_min(rate - 0.4, 0) to eliminate ~0.4 req/s Nginx stub_status health probe noise.
+  - Proper empty states: noValue="No traffic yet" on all charts and stats.
+  - Collapsed row panels properly nested in row["panels"] to eliminate orphaned "(0 panels)" headers.
 """
 
 from __future__ import annotations
@@ -53,25 +60,38 @@ WAIT_P50 = "histogram_quantile(0.50, sum by (le) (rate(surgeguard_queue_wait_sec
 WAIT_P95 = "histogram_quantile(0.95, sum by (le) (rate(surgeguard_queue_wait_seconds_bucket[5m])))"
 
 ADMISSION_RATE = "sum(rate(surgeguard_admissions_total[$rate_interval])) or vector(0)"
-EDGE_RPS       = "sum(rate(nginx_http_requests_total[$rate_interval])) or vector(0)"
-ORIGIN_RPS     = "sum(rate(demo_requests_total[$rate_interval])) or vector(0)"
+
+# Nginx stub_status counts ALL requests accepted by the server across all ports, including
+# internal container health probes (:8090 /healthz and /stub_status) at ~0.4 req/s.
+# We clamp_min(rate - 0.4, 0) so the baseline reads 0 req/s at idle.
+EDGE_RPS = (
+    "clamp_min(sum(rate(nginx_http_requests_total[$rate_interval])) - 0.4, 0) or vector(0)"
+)
+ORIGIN_RPS = "sum(rate(demo_requests_total[$rate_interval])) or vector(0)"
+
 
 # ─── Navigation Header Bar ─────────────────────────────────────────────────
-LINK_BAR = (
-    "| [1. Overview](/grafana/d/surgeguard-overview?{__url_time_range}) "
-    "| [2. Queue & Admission](/grafana/d/surgeguard-queue?{__url_time_range}) "
-    "| [3. Backends & Traffic](/grafana/d/surgeguard-backends?{__url_time_range}) "
-    "| [4. Reliability & Recovery](/grafana/d/surgeguard-failure?{__url_time_range}) "
-    "| [5. Infrastructure](/grafana/d/surgeguard-resources?{__url_time_range}) "
-    "| [6. Protected vs Unprotected](/grafana/d/surgeguard-comparison?{__url_time_range}) |"
-)
+def nav_bar(current_uid: str) -> str:
+    links = [
+        ("surgeguard-overview",   "1. Overview",            "/grafana/d/surgeguard-overview"),
+        ("surgeguard-queue",      "2. Queue & Admission",   "/grafana/d/surgeguard-queue"),
+        ("surgeguard-backends",   "3. Backends & Traffic",  "/grafana/d/surgeguard-backends"),
+        ("surgeguard-failure",    "4. Reliability & Recovery", "/grafana/d/surgeguard-failure"),
+        ("surgeguard-resources",  "5. Infrastructure",       "/grafana/d/surgeguard-resources"),
+        ("surgeguard-comparison", "6. Protected vs Unprotected", "/grafana/d/surgeguard-comparison"),
+    ]
+    items = []
+    for uid, label, url in links:
+        if uid == current_uid:
+            items.append(f"**[{label}]({url}?{{__url_time_range}})**")
+        else:
+            items.append(f"[{label}]({url}?{{__url_time_range}})")
+    return "| " + " | ".join(items) + " |"
 
 
-# ─── Panel Builders ────────────────────────────────────────────────────────
-
-def header(subtitle: str, w: int = 24, h: int = 2) -> dict:
-    """Transparent text panel with subtitle + link bar."""
-    content = f"## {subtitle}\n\n{LINK_BAR}"
+def header(subtitle: str, current_uid: str, w: int = 24, h: int = 3) -> dict:
+    """Transparent text panel with subtitle and non-clipped nav links."""
+    content = f"### {subtitle}\n\n{nav_bar(current_uid)}"
     return {
         "type": "text",
         "title": "",
@@ -82,21 +102,24 @@ def header(subtitle: str, w: int = 24, h: int = 2) -> dict:
     }
 
 
+# ─── Panel Builders ────────────────────────────────────────────────────────
 def stat(
     title: str,
     expr: str,
     unit: str = "short",
     decimals: int | None = None,
     thresholds: list | None = None,
-    no_value: str = "—",
+    no_value: str = "No traffic yet",
     description: str = "",
-    color_mode: str = "background",
+    color_mode: str = "value",
+    graph_mode: str = "area",
+    link_url: str | None = None,
     w: int = 4,
     h: int = 4,
 ) -> dict:
-    """Stat panel with colored background, sparkline area, and lastNotNull value."""
+    """Flat dark stat panel with colored value, sparkline, and optional dashboard deep link."""
     steps = thresholds or [{"color": GREEN, "value": None}]
-    return {
+    panel = {
         "type": "stat",
         "title": title,
         "description": description,
@@ -104,7 +127,7 @@ def stat(
         "targets": [{"refId": "A", "expr": expr, "datasource": DS}],
         "options": {
             "colorMode": color_mode,
-            "graphMode": "area",
+            "graphMode": graph_mode,
             "textMode": "auto",
             "orientation": "auto",
             "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": False},
@@ -123,6 +146,15 @@ def stat(
         "_w": w,
         "_h": h,
     }
+    if link_url:
+        panel["links"] = [
+            {
+                "title": f"Drill down: {title}",
+                "url": f"{link_url}?{{__url_time_range}}",
+                "targetBlank": False,
+            }
+        ]
+    return panel
 
 
 def stat_mapped(
@@ -131,18 +163,19 @@ def stat_mapped(
     mappings: list,
     unit: str = "short",
     description: str = "",
+    link_url: str | None = None,
     w: int = 4,
     h: int = 4,
 ) -> dict:
-    """Stat panel with explicit value-to-text mappings (e.g. 1→UP, 0→DOWN)."""
-    return {
+    """Stat panel with explicit value-to-text mappings and colored value on flat dark surface."""
+    panel = {
         "type": "stat",
         "title": title,
         "description": description,
         "datasource": DS,
         "targets": [{"refId": "A", "expr": expr, "datasource": DS}],
         "options": {
-            "colorMode": "background",
+            "colorMode": "value",
             "graphMode": "none",
             "textMode": "auto",
             "orientation": "auto",
@@ -167,6 +200,15 @@ def stat_mapped(
         "_w": w,
         "_h": h,
     }
+    if link_url:
+        panel["links"] = [
+            {
+                "title": f"Drill down: {title}",
+                "url": f"{link_url}?{{__url_time_range}}",
+                "targetBlank": False,
+            }
+        ]
+    return panel
 
 
 def ts(
@@ -175,7 +217,7 @@ def ts(
     unit: str = "reqps",
     overrides: list | None = None,
     stack: bool = False,
-    fill: int = 12,
+    fill: int = 8,
     description: str = "",
     no_value: str = "No traffic yet",
     w: int = 12,
@@ -184,7 +226,7 @@ def ts(
     y_soft_max: float | None = None,
     thresholds: list | None = None,
 ) -> dict:
-    """Time series panel with smooth lines, compact legend, and crosshairs."""
+    """Time series panel: smooth lines, max 10% fill, hidden legend for single series."""
     custom: dict = {
         "lineWidth": 2,
         "fillOpacity": fill,
@@ -215,6 +257,7 @@ def ts(
     if y_soft_max is not None:
         defaults["max"] = y_soft_max
 
+    legend_display = "hidden" if len(targets) <= 1 else "list"
     return {
         "type": "timeseries",
         "title": title,
@@ -235,7 +278,7 @@ def ts(
         },
         "options": {
             "legend": {
-                "displayMode": "list",
+                "displayMode": legend_display,
                 "placement": "bottom",
                 "calcs": [],
             },
@@ -265,8 +308,79 @@ def _series_override(name: str, color: str, fill: int = 0, dashed: bool = False)
     }
 
 
-def row(title: str, collapsed: bool = False) -> dict:
-    return {"type": "row", "title": title, "collapsed": collapsed, "_w": 24, "_h": 1}
+def row(title: str, collapsed: bool = False, panels: list | None = None) -> dict:
+    """Row header. If collapsed=True and panels are given, child panels are nested inside."""
+    r = {"type": "row", "title": title, "collapsed": collapsed, "_w": 24, "_h": 1}
+    if panels:
+        r["_child_panels"] = panels
+    return r
+
+
+def components_table(w: int = 24, h: int = 6) -> dict:
+    """Compact Components status table showing Component, Target, and Status."""
+    return {
+        "type": "table",
+        "title": "Cluster Components",
+        "description": "Scrape status of all SurgeGuard dependencies. Green = UP, Red = DOWN.",
+        "datasource": DS,
+        "targets": [
+            {
+                "refId": "A",
+                "expr": "up",
+                "format": "table",
+                "instant": True,
+                "datasource": DS,
+            }
+        ],
+        "options": {
+            "showHeader": True,
+            "sortBy": [{"displayName": "Component", "desc": False}],
+        },
+        "fieldConfig": {
+            "defaults": {
+                "color": {"mode": "thresholds"},
+                "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                        {"color": RED, "value": None},
+                        {"color": GREEN, "value": 1},
+                    ],
+                },
+                "mappings": [
+                    {
+                        "type": "value",
+                        "options": {
+                            "0": {"text": "DOWN", "color": RED, "index": 0},
+                            "1": {"text": "UP", "color": GREEN, "index": 1},
+                        },
+                    }
+                ],
+            },
+            "overrides": [
+                {
+                    "matcher": {"id": "byName", "options": "job"},
+                    "properties": [{"id": "custom.displayName", "value": "Component"}],
+                },
+                {
+                    "matcher": {"id": "byName", "options": "instance"},
+                    "properties": [{"id": "custom.displayName", "value": "Target"}],
+                },
+                {
+                    "matcher": {"id": "byName", "options": "Value"},
+                    "properties": [
+                        {"id": "custom.displayName", "value": "Status"},
+                        {"id": "custom.cellOptions", "value": {"type": "color-background"}},
+                    ],
+                },
+                {
+                    "matcher": {"id": "byName", "options": "Time"},
+                    "properties": [{"id": "custom.hideFrom", "value": {"tooltip": True, "viz": True}}],
+                },
+            ],
+        },
+        "_w": w,
+        "_h": h,
+    }
 
 
 def alerts_panel(
@@ -293,61 +407,6 @@ def alerts_panel(
     }
 
 
-def scrape_status_grid(w: int = 24, h: int = 5) -> dict:
-    """Stat panel repeating over `up` metric by instance to show per-target UP/DOWN."""
-    return {
-        "type": "stat",
-        "title": "Scrape Target Status",
-        "description": (
-            "One tile per Prometheus scrape target. "
-            "Green = UP, Red = DOWN, — = target not seen yet."
-        ),
-        "datasource": DS,
-        "targets": [
-            {
-                "refId": "A",
-                "expr": "up",
-                "legendFormat": "{{job}}: {{instance}}",
-                "datasource": DS,
-                "instant": True,
-            }
-        ],
-        "options": {
-            "colorMode": "background",
-            "graphMode": "none",
-            "textMode": "auto",
-            "orientation": "auto",
-            "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": True},
-        },
-        "fieldConfig": {
-            "defaults": {
-                "unit": "short",
-                "noValue": "—",
-                "color": {"mode": "thresholds"},
-                "thresholds": {
-                    "mode": "absolute",
-                    "steps": [
-                        {"color": RED, "value": None},
-                        {"color": GREEN, "value": 1},
-                    ],
-                },
-                "mappings": [
-                    {
-                        "type": "value",
-                        "options": {
-                            "0": {"text": "DOWN", "color": RED, "index": 0},
-                            "1": {"text": "UP", "color": GREEN, "index": 1},
-                        },
-                    }
-                ],
-            },
-            "overrides": [],
-        },
-        "_w": w,
-        "_h": h,
-    }
-
-
 def dashboard(
     uid: str,
     title: str,
@@ -355,21 +414,21 @@ def dashboard(
     description: str,
     has_origin_var: bool = False,
 ) -> dict:
-    """Assemble a full Grafana dashboard JSON object."""
+    """Assemble a full Grafana dashboard JSON object with clean variables and unified event annotation."""
     templating_list = [
         {
             "name": "rate_interval",
             "type": "custom",
             "label": "Rate Window",
-            "query": "30s,1m,2m,5m",
+            "query": "1m,2m,5m",
             "current": {"text": "1m", "value": "1m", "selected": True},
             "options": [
-                {"text": "30s", "value": "30s", "selected": False},
                 {"text": "1m", "value": "1m", "selected": True},
                 {"text": "2m", "value": "2m", "selected": False},
                 {"text": "5m", "value": "5m", "selected": False},
             ],
-            "hide": 0,
+            # Hidden from toolbar: keeps rate window fixed at 1m without visual clutter
+            "hide": 2,
         }
     ]
     if has_origin_var:
@@ -390,49 +449,32 @@ def dashboard(
             },
         )
 
+    # Single merged "Events" toggle for backend transitions, pauses, and worker leader elections
     annotations = {
         "list": [
             {
                 "builtIn": 1,
                 "datasource": "-- Grafana --",
                 "enable": True,
-                "hide": False,
+                "hide": True,
                 "name": "Annotations & Alerts",
                 "type": "dashboard",
             },
             {
-                "name": "Backend down",
+                "name": "Events",
                 "datasource": DS,
                 "enable": True,
                 "hide": False,
-                "expr": "changes(surgeguard_backend_up[30s]) != 0",
+                "expr": (
+                    "changes(surgeguard_backend_up[30s]) != 0 "
+                    "or changes(surgeguard_admission_paused[30s]) != 0 "
+                    "or changes(surgeguard_worker_is_leader[30s]) != 0"
+                ),
                 "step": "30s",
-                "titleFormat": "Backend probe change",
-                "textFormat": "{{backend}}",
-                "iconColor": RED,
-                "tags": ["backend"],
-            },
-            {
-                "name": "Admission paused/resumed",
-                "datasource": DS,
-                "enable": True,
-                "hide": False,
-                "expr": "changes(surgeguard_admission_paused[30s]) != 0",
-                "step": "30s",
-                "titleFormat": "Admission state change",
+                "titleFormat": "Cluster Event",
+                "textFormat": "Backend probe transition, admission pause/resume, or leader change",
                 "iconColor": AMBER,
-                "tags": ["admission"],
-            },
-            {
-                "name": "Worker leader change",
-                "datasource": DS,
-                "enable": True,
-                "hide": False,
-                "expr": "changes(surgeguard_worker_is_leader[30s]) != 0",
-                "step": "30s",
-                "titleFormat": "Leader election",
-                "iconColor": PURPLE,
-                "tags": ["worker"],
+                "tags": ["event"],
             },
         ]
     }
@@ -444,7 +486,7 @@ def dashboard(
         "tags": ["surgeguard", "observability"],
         "timezone": "browser",
         "schemaVersion": 39,
-        "version": 4,
+        "version": 5,
         "refresh": "5s",
         "time": {"from": "now-15m", "to": "now"},
         "editable": False,
@@ -456,25 +498,63 @@ def dashboard(
 
 
 def _layout(panels: list) -> list:
-    """Assign gridPos to each panel sequentially on a strict 24-column grid."""
+    """Assign gridPos sequentially. Nested child panels in collapsed rows are preserved inside row['panels']."""
     x = y = row_h = 0
     out = []
-    for i, p in enumerate(panels, start=1):
+    panel_id = 1
+    for p in panels:
         w, h = p.pop("_w"), p.pop("_h")
         if p.get("type") == "row":
             if x > 0:
                 y += row_h
                 x = 0
                 row_h = 0
-            p["id"] = i
+            p["id"] = panel_id
+            panel_id += 1
             p["gridPos"] = {"x": 0, "y": y, "w": 24, "h": 1}
             y += 1
+
+            child_panels = p.pop("_child_panels", None)
+            if p.get("collapsed") and child_panels:
+                cx = cy = crow_h = 0
+                c_out = []
+                for cp in child_panels:
+                    cw, ch = cp.pop("_w"), cp.pop("_h")
+                    if cx + cw > 24:
+                        cx, cy = 0, cy + crow_h
+                        crow_h = 0
+                    cp["id"] = panel_id
+                    panel_id += 1
+                    cp["gridPos"] = {"x": cx, "y": cy, "w": cw, "h": ch}
+                    c_out.append(cp)
+                    cx += cw
+                    crow_h = max(crow_h, ch)
+                p["panels"] = c_out
+                out.append(p)
+                continue
+            elif child_panels:
+                out.append(p)
+                for cp in child_panels:
+                    cw, ch = cp.pop("_w"), cp.pop("_h")
+                    if x + cw > 24:
+                        x, y = 0, y + row_h
+                        row_h = 0
+                    cp["id"] = panel_id
+                    panel_id += 1
+                    cp["gridPos"] = {"x": x, "y": y, "w": cw, "h": ch}
+                    out.append(cp)
+                    x += cw
+                    row_h = max(row_h, ch)
+                continue
+
             out.append(p)
             continue
+
         if x + w > 24:
             x, y = 0, y + row_h
             row_h = 0
-        p["id"] = i
+        p["id"] = panel_id
+        panel_id += 1
         p["gridPos"] = {"x": x, "y": y, "w": w, "h": h}
         out.append(p)
         x += w
@@ -485,11 +565,13 @@ def _layout(panels: list) -> list:
 # ═══════════════════════════════════════════════════════════════════════════
 #  1. OVERVIEW — surgeguard-overview (Health at a glance)
 # ═══════════════════════════════════════════════════════════════════════════
-
 OVERVIEW_PANELS = [
-    header("1. Overview — Is everything OK, and is the waiting room protecting your origin?"),
+    header(
+        "Overview — Is everything OK, and is the waiting room protecting your origin?",
+        "surgeguard-overview",
+    ),
 
-    # Top row: 6 big stat panels across 24 cols (4 cols each)
+    # Top row: 6 flat dark stat tiles across 24 cols (w=4, h=5 each)
     stat_mapped(
         "Overall Status",
         (
@@ -514,7 +596,8 @@ OVERVIEW_PANELS = [
                 },
             }
         ],
-        description="Cluster health signal: HEALTHY = Redis up + Worker leader + API up + healthy backends.",
+        description="Cluster health signal: HEALTHY = Redis up + Worker leader + API up + healthy backends. Click to drill down into Reliability.",
+        link_url="/grafana/d/surgeguard-failure",
         w=4, h=5,
     ),
     stat(
@@ -528,7 +611,8 @@ OVERVIEW_PANELS = [
             {"color": RED,   "value": 100},
         ],
         no_value="0",
-        description="Visitors currently in the FIFO queue waiting for an admission token.",
+        description="Visitors currently in the FIFO waiting room. Click to view Queue & Admission.",
+        link_url="/grafana/d/surgeguard-queue",
         w=4, h=5,
     ),
     stat(
@@ -538,7 +622,8 @@ OVERVIEW_PANELS = [
         decimals=1,
         thresholds=[{"color": GREEN, "value": None}],
         no_value="0",
-        description="Admission tokens issued per second (measured).",
+        description="Measured rate of admitted visitors (of N configured). Green when admission is actively issuing tokens.",
+        link_url="/grafana/d/surgeguard-queue",
         w=4, h=5,
     ),
     stat(
@@ -546,13 +631,15 @@ OVERVIEW_PANELS = [
         "max(surgeguard_backends_healthy) or vector(0)",
         unit="short",
         decimals=0,
+        graph_mode="none",
         thresholds=[
             {"color": RED,   "value": None},
             {"color": AMBER, "value": 1},
             {"color": GREEN, "value": 2},
         ],
         no_value="0",
-        description="Origin backends passing active health probes.",
+        description="Origin backends passing active health probes (2 of 2 healthy). Red = 0, amber = partial, green = all passing.",
+        link_url="/grafana/d/surgeguard-backends",
         w=4, h=5,
     ),
     stat(
@@ -566,11 +653,12 @@ OVERVIEW_PANELS = [
             {"color": RED,   "value": 0.05},
         ],
         no_value="0%",
-        description="Fraction of origin responses that are 5xx server errors.",
+        description="Origin 5xx error ratio. Green <1%, amber 1-5%, red ≥5%. Click to view Backends & Traffic.",
+        link_url="/grafana/d/surgeguard-backends",
         w=4, h=5,
     ),
     stat_mapped(
-        "Redis up",
+        "Redis",
         'max(redis_up{job="redis"}) or vector(0)',
         mappings=[
             {
@@ -581,181 +669,120 @@ OVERVIEW_PANELS = [
                 },
             }
         ],
-        description="Redis state store connectivity for queue and token coordination.",
+        description="Redis state store connectivity for queue coordination and JWT token caching. Click to view Infrastructure.",
+        link_url="/grafana/d/surgeguard-resources",
         w=4, h=5,
     ),
 
-    # Main 2 time series
-    row("Traffic & Admission"),
-    ts(
-        "Edge requests vs admitted to origin",
-        [
-            (EDGE_RPS, "Edge ingress (Nginx)"),
-            (ORIGIN_RPS, "Admitted to origin"),
-        ],
-        unit="reqps",
-        overrides=[
-            _series_override("Edge ingress (Nginx)", BLUE,  fill=10),
-            _series_override("Admitted to origin",   GREEN, fill=12),
-        ],
-        description="Public edge traffic arriving at Nginx vs visitors admitted to origin.",
-        y_min=0,
-        w=12, h=8,
-    ),
-    ts(
-        "Admission rate — measured vs target",
-        [
-            (ADMISSION_RATE, "Measured rate"),
-            ("max(surgeguard_admission_rate_effective) or vector(0)", "Effective target"),
-            ("max(surgeguard_admission_rate_configured) or vector(0)", "Configured target"),
-        ],
-        unit="reqps",
-        overrides=[
-            _series_override("Measured rate",      GREEN, fill=14),
-            _series_override("Effective target",  AMBER, fill=0, dashed=True),
-            _series_override("Configured target", SLATE, fill=0, dashed=True),
-        ],
-        description="Tokens issued per second (solid line) vs configured policy rate (dashed line).",
-        y_min=0,
-        w=12, h=8,
-    ),
-
-    row("Queue & Origin Health"),
+    # Main 2 charts
     ts(
         "People in line",
         [("max(surgeguard_queue_length) or vector(0)", "Waiting in queue")],
         unit="short",
-        overrides=[_series_override("Waiting in queue", AMBER, fill=16)],
-        description="Queue depth over time. Flat line near zero means admission gate matches incoming arrivals.",
+        overrides=[_series_override("Waiting in queue", AMBER, fill=14)],
+        description="Queue depth over time. Flat line near zero means admission gate matches arrival velocity.",
         y_min=0,
         y_soft_max=5,
         w=12, h=8,
     ),
     ts(
-        "Website speed & latency (p50 / p95 / p99)",
-        [(P50, "p50 median"), (P95, "p95"), (P99, "p99 tail")],
-        unit="s",
-        overrides=[
-            _series_override("p50 median", GREEN,  fill=8),
-            _series_override("p95",        AMBER,  fill=6),
-            _series_override("p99 tail",   PURPLE, fill=4),
+        "Edge requests vs admitted to origin",
+        [
+            (EDGE_RPS,   "Edge ingress (Nginx)"),
+            (ORIGIN_RPS, "Admitted to origin"),
         ],
-        no_value="No traffic yet",
-        description="End-to-end response time latency profile at the origin backend.",
+        unit="reqps",
+        overrides=[
+            _series_override("Edge ingress (Nginx)", BLUE,  fill=8),
+            _series_override("Admitted to origin",   GREEN, fill=10),
+        ],
+        description="Public visitor traffic arriving at Nginx edge vs visitors admitted to origin. Filtered via clamp_min(rate - 0.4, 0) to exclude internal healthcheck probe noise.",
         y_min=0,
         w=12, h=8,
     ),
 
-    row("Scrape targets", collapsed=True),
-    scrape_status_grid(w=24, h=5),
+    # Collapsed Components row (contains nested components_table inside row['panels'])
+    row("Components", collapsed=True, panels=[components_table(w=24, h=6)]),
 ]
 
 
 # ═══════════════════════════════════════════════════════════════════════════
 #  2. QUEUE & ADMISSION — surgeguard-queue
 # ═══════════════════════════════════════════════════════════════════════════
-
 QUEUE_PANELS = [
-    header("2. Queue & Admission — Queue length, admission velocity, wait times, token lifecycle"),
+    header(
+        "Queue & Admission — Queue length, admission velocity, wait times, token lifecycle",
+        "surgeguard-queue",
+    ),
 
-    # Stat strip
     stat("Waiting now", "max(surgeguard_queue_length) or vector(0)",
          unit="short", decimals=0,
          thresholds=[{"color": GREEN, "value": None}, {"color": AMBER, "value": 1}, {"color": RED, "value": 100}],
-         no_value="0", description="Visitors currently in the FIFO waiting room.", w=6, h=5),
+         no_value="0", description="Visitors currently waiting in the FIFO queue.", w=6, h=5),
     stat("Admitted & active", "max(surgeguard_admitted_active) or vector(0)",
          unit="short", decimals=0,
          thresholds=[{"color": GREEN, "value": None}],
-         no_value="0", description="Visitors currently holding a valid admission token.", w=6, h=5),
-    stat("Admission rate", ADMISSION_RATE,
+         no_value="0", description="Visitors currently holding an active admission token.", w=6, h=5),
+    stat("Measured admission rate", ADMISSION_RATE,
          unit="reqps", decimals=1,
          thresholds=[{"color": GREEN, "value": None}],
-         no_value="0", description="Tokens minted per second (measured).", w=6, h=5),
+         no_value="0", description="Tokens minted per second by the worker daemon.", w=6, h=5),
     stat("Configured rate", "max(surgeguard_admission_rate_configured) or vector(0)",
          unit="reqps", decimals=0,
          thresholds=[{"color": BLUE, "value": None}],
-         no_value="—", description="Configured admission rate setting.", w=6, h=5),
+         no_value="—", description="Configured admission rate setting in SurgeGuard policy.", w=6, h=5),
 
-    row("Queue length & admission rate"),
+    row("Queue Dynamics & Admission"),
     ts(
         "People in line",
         [("max(surgeguard_queue_length) or vector(0)", "Waiting")],
         unit="short",
-        overrides=[_series_override("Waiting", AMBER, fill=16)],
+        overrides=[_series_override("Waiting", AMBER, fill=14)],
         description="Queue length over time.",
         y_min=0, y_soft_max=5,
         w=12, h=8,
     ),
     ts(
-        "Admission rate — measured vs configured vs effective",
+        "Admission rate — measured vs target",
         [
-            (ADMISSION_RATE, "Measured"),
-            ("max(surgeguard_admission_rate_effective) or vector(0)", "Effective target"),
+            (ADMISSION_RATE, "Measured rate"),
             ("max(surgeguard_admission_rate_configured) or vector(0)", "Configured target"),
+            ("max(surgeguard_admission_rate_effective) or vector(0)",  "Effective target"),
         ],
         unit="reqps",
         overrides=[
-            _series_override("Measured",          GREEN, fill=14),
-            _series_override("Effective target",  AMBER, fill=0, dashed=True),
-            _series_override("Configured target", SLATE, fill=0, dashed=True),
+            _series_override("Measured rate",      GREEN, fill=10),
+            _series_override("Configured target",  GREY,  fill=0, dashed=True),
+            _series_override("Effective target",   AMBER, fill=0, dashed=True),
         ],
-        description="Measured admission rate vs configured and health-adjusted effective targets.",
+        description="Measured rate (solid green) vs configured policy rate (dashed grey) and health-adjusted effective target (dashed amber).",
         y_min=0, w=12, h=8,
     ),
 
-    row("Wait times & join outcomes"),
+    row("Wait Times & Security"),
     ts(
         "Queue wait time (p50 / p95)",
         [(WAIT_P50, "p50 median"), (WAIT_P95, "p95 wait")],
         unit="s",
         overrides=[
-            _series_override("p50 median", GREEN, fill=10),
-            _series_override("p95 wait",   AMBER, fill=6),
+            _series_override("p50 median", GREEN, fill=8),
+            _series_override("p95 wait",   AMBER, fill=4),
         ],
         no_value="No traffic yet",
-        description="Time from joining the queue until receiving an admission token.",
+        description="Time from joining queue until receiving admission token.",
         y_min=0, w=12, h=8,
     ),
     ts(
-        "Queue joins by mode",
-        [("sum by (mode) (rate(surgeguard_queue_joins_total[$rate_interval]))", "{{mode}}")],
-        unit="reqps",
-        stack=True,
-        description="Arrivals by admission path (direct vs queued).",
-        y_min=0, w=12, h=8,
-    ),
-
-    row("Token lifecycle & security"),
-    ts(
-        "Tokens issued & validated",
+        "Tokens issued vs rejected by reason",
         [
-            ("sum(rate(surgeguard_tokens_issued_total[$rate_interval])) or vector(0)", "Issued"),
-            ("sum by (result) (rate(surgeguard_token_validations_total[$rate_interval]))", "Validation: {{result}}"),
+            ("sum(rate(surgeguard_tokens_issued_total[$rate_interval])) or vector(0)", "Tokens issued"),
+            ("sum by (reason) (rate(surgeguard_token_rejections_total[$rate_interval]))", "Rejected: {{reason}}"),
         ],
         unit="reqps",
-        description="Token minting rate and validation outcomes at /internal/auth.",
-        y_min=0, w=12, h=8,
-    ),
-    ts(
-        "Token rejections by reason",
-        [("sum by (reason) (rate(surgeguard_token_rejections_total[$rate_interval]))", "{{reason}}")],
-        unit="reqps",
-        stack=True,
-        description="Security rejections (expired, tampered signature, revoked).",
-        y_min=0, w=12, h=8,
-    ),
-    ts(
-        "Visitors expired (heartbeat timeout)",
-        [("sum by (reason) (rate(surgeguard_visitors_expired_total[$rate_interval]))", "{{reason}}")],
-        unit="reqps",
-        description="Visitors purged from queue after abandoned polling.",
-        y_min=0, w=12, h=8,
-    ),
-    ts(
-        "Rate-limited join attempts",
-        [("sum by (bucket) (rate(surgeguard_rate_limited_total[$rate_interval]))", "{{bucket}}")],
-        unit="reqps",
-        description="Join attempts throttled by the application rate limiter.",
+        overrides=[
+            _series_override("Tokens issued", GREEN, fill=8),
+        ],
+        description="Token minting rate vs rejected tokens (expired, tampered signature, revoked).",
         y_min=0, w=12, h=8,
     ),
 ]
@@ -764,20 +791,23 @@ QUEUE_PANELS = [
 # ═══════════════════════════════════════════════════════════════════════════
 #  3. BACKENDS & TRAFFIC — surgeguard-backends
 # ═══════════════════════════════════════════════════════════════════════════
-
 BACKENDS_PANELS = [
-    header("3. Backends & Traffic — Nginx ingress, connections, per-origin load & bypass protection"),
+    header(
+        "Backends & Traffic — Nginx ingress, connections, per-origin load & bypass protection",
+        "surgeguard-backends",
+    ),
 
     stat("Edge requests / s", EDGE_RPS,
          unit="reqps", decimals=1,
          thresholds=[{"color": BLUE, "value": None}],
-         no_value="0", description="HTTP requests arriving at Nginx edge per second.", w=4, h=5),
+         no_value="0", description="HTTP requests arriving at Nginx edge per second (health probe noise subtracted).", w=4, h=5),
     stat("Active connections", "max(nginx_connections_active) or vector(0)",
          unit="short", decimals=0,
          thresholds=[{"color": GREEN, "value": None}],
          no_value="0", description="Open TCP connections in Nginx workers.", w=4, h=5),
     stat("Healthy backends", "max(surgeguard_backends_healthy) or vector(0)",
          unit="short", decimals=0,
+         graph_mode="none",
          thresholds=[{"color": RED, "value": None}, {"color": AMBER, "value": 1}, {"color": GREEN, "value": 2}],
          no_value="0", description="Origin backends passing active health probes.", w=4, h=5),
     stat("Origin p95 latency", P95,
@@ -787,21 +817,63 @@ BACKENDS_PANELS = [
     stat("Origin error rate", ERR_RATIO,
          unit="percentunit", decimals=1,
          thresholds=[{"color": GREEN, "value": None}, {"color": AMBER, "value": 0.01}, {"color": RED, "value": 0.05}],
-         no_value="0%", description="Origin 5xx error ratio.", w=4, h=5),
+         no_value="0%", description="Origin 5xx server error ratio.", w=4, h=5),
     stat("Direct-bypass drops", 'sum(rate(demo_forbidden_total[$rate_interval])) or vector(0)',
          unit="reqps", decimals=1,
          thresholds=[{"color": GREEN, "value": None}, {"color": RED, "value": 1}],
-         no_value="0", description="Requests blocked by guard middleware without origin key.", w=4, h=5),
+         no_value="0", description="Requests blocked by guard middleware without origin shared key (403).", w=4, h=5),
 
-    row("Edge ingress & connections"),
+    row("Per-Origin Workload ($origin)"),
     ts(
-        "Nginx edge request rate",
-        [(EDGE_RPS, "Nginx edge rps")],
+        "Requests per origin",
+        [('sum by (origin) (rate(demo_requests_total{origin=~"$origin"}[$rate_interval]))', "{{origin}}")],
         unit="reqps",
-        overrides=[_series_override("Nginx edge rps", BLUE, fill=12)],
-        description="Total HTTP requests arriving at the public Nginx edge.",
+        stack=True,
+        description="Admitted requests distributed across origin backends.",
         y_min=0, w=12, h=8,
     ),
+    ts(
+        "Origin latency percentiles (p50 / p95 / p99)",
+        [
+            ('histogram_quantile(0.50, sum by (le) (rate(demo_request_duration_seconds_bucket{origin=~"$origin"}[$rate_interval])))', "p50 median"),
+            ('histogram_quantile(0.95, sum by (le) (rate(demo_request_duration_seconds_bucket{origin=~"$origin"}[$rate_interval])))', "p95"),
+            ('histogram_quantile(0.99, sum by (le) (rate(demo_request_duration_seconds_bucket{origin=~"$origin"}[$rate_interval])))', "p99 tail"),
+        ],
+        unit="s",
+        overrides=[
+            _series_override("p50 median", GREEN,  fill=8),
+            _series_override("p95",        AMBER,  fill=4),
+            _series_override("p99 tail",   PURPLE, fill=2),
+        ],
+        no_value="No traffic yet",
+        description="Response latency distribution across selected origin instances.",
+        y_min=0, w=12, h=8,
+    ),
+    ts(
+        "Origin concurrency semaphore (in-flight vs pending)",
+        [
+            ('sum by (origin) (demo_inflight_requests{origin=~"$origin"})', "In-flight {{origin}}"),
+            ('sum by (origin) (demo_pending_requests{origin=~"$origin"})',  "Pending {{origin}}"),
+        ],
+        unit="short",
+        description="Internal concurrency semaphore state per origin node.",
+        y_min=0, w=12, h=8,
+    ),
+    ts(
+        "5xx error ratio & 503 overload drops",
+        [
+            (ERR_RATIO, "5xx error ratio"),
+            ('sum by (origin) (rate(demo_overload_rejections_total{origin=~"$origin"}[$rate_interval]))', "{{origin}} 503 drops"),
+        ],
+        unit="percentunit",
+        overrides=[
+            _series_override("5xx error ratio", RED, fill=8),
+        ],
+        description="Server errors and concurrency exhaustion drops.",
+        y_min=0, w=12, h=8,
+    ),
+
+    row("Edge Ingress & Protection"),
     ts(
         "Nginx connection states",
         [
@@ -812,69 +884,18 @@ BACKENDS_PANELS = [
         ],
         unit="short",
         overrides=[
-            _series_override("Active",     BLUE,  fill=10),
-            _series_override("Keep-alive", SLATE, fill=4),
+            _series_override("Active",     BLUE,  fill=8),
+            _series_override("Keep-alive", SLATE, fill=2),
         ],
         description="TCP connection states inside Nginx workers.",
         y_min=0, w=12, h=8,
     ),
-
-    row("Per-origin workload ($origin)"),
     ts(
-        "Requests per origin",
-        [('sum by (origin) (rate(demo_requests_total{origin=~"$origin"}[$rate_interval]))', "{{origin}}")],
-        unit="reqps",
-        stack=True,
-        description="Admitted requests distributed across origin backends.",
-        y_min=0, w=12, h=8,
-    ),
-    ts(
-        "Origin p95 latency by instance",
-        [('histogram_quantile(0.95, sum by (le, origin) (rate(demo_request_duration_seconds_bucket{origin=~"$origin"}[$rate_interval])))', "{{origin}} p95")],
-        unit="s",
-        no_value="No traffic yet",
-        description="Execution latency at 95th percentile per origin.",
-        y_min=0, w=12, h=8,
-    ),
-    ts(
-        "Origin concurrency semaphore (in-flight & pending)",
-        [
-            ('sum by (origin) (demo_inflight_requests{origin=~"$origin"})', "In-flight {{origin}}"),
-            ('sum by (origin) (demo_pending_requests{origin=~"$origin"})', "Pending {{origin}}"),
-        ],
-        unit="short",
-        description="Internal concurrency semaphore state per origin node.",
-        y_min=0, w=12, h=8,
-    ),
-    ts(
-        "Origin 5xx error ratio & 503 overload drops",
-        [
-            (ERR_RATIO, "5xx ratio"),
-            ('sum by (origin) (rate(demo_overload_rejections_total{origin=~"$origin"}[$rate_interval]))', "{{origin}} 503 drops"),
-        ],
-        unit="percentunit",
-        overrides=[
-            _series_override("5xx ratio", RED, fill=10),
-        ],
-        description="Server errors and concurrency exhaustion drops.",
-        y_min=0, w=12, h=8,
-    ),
-
-    row("Security & backend health"),
-    ts(
-        "Direct-bypass attempts (403 Forbidden)",
+        "Direct-bypass attempts blocked (403 Forbidden)",
         [('sum by (origin) (rate(demo_forbidden_total{origin=~"$origin"}[$rate_interval]))', "Blocked {{origin}}")],
         unit="reqps",
         overrides=[_series_override("Blocked demo-1", RED, fill=8), _series_override("Blocked demo-2", RED, fill=8)],
         description="Requests without valid X-Origin-Key header blocked by origin guard middleware.",
-        y_min=0, w=12, h=8,
-    ),
-    ts(
-        "Backend health probe latency",
-        [("max by (backend) (surgeguard_backend_check_latency_seconds)", "{{backend}}")],
-        unit="s",
-        no_value="No traffic yet",
-        description="Round-trip latency of worker health probes to each backend.",
         y_min=0, w=12, h=8,
     ),
 ]
@@ -883,31 +904,34 @@ BACKENDS_PANELS = [
 # ═══════════════════════════════════════════════════════════════════════════
 #  4. RELIABILITY & RECOVERY — surgeguard-failure
 # ═══════════════════════════════════════════════════════════════════════════
-
 FAILURE_PANELS = [
-    header("4. Reliability & Recovery — Fail-closed behavior, auto-pause, worker leadership, alerts"),
+    header(
+        "Reliability & Recovery — Fail-closed behavior, auto-pause, worker leadership, alerts",
+        "surgeguard-failure",
+    ),
 
     stat_mapped("API status", 'max(up{job="surgeguard-api"}) or vector(0)',
                 mappings=[{"type":"value","options":{"0":{"text":"DOWN","color":RED,"index":0},"1":{"text":"UP","color":GREEN,"index":1}}}],
                 description="SurgeGuard API health.", w=4, h=5),
     stat_mapped("Worker status", 'max(up{job="admission-worker"}) or vector(0)',
                 mappings=[{"type":"value","options":{"0":{"text":"DOWN","color":RED,"index":0},"1":{"text":"UP","color":GREEN,"index":1}}}],
-                description="Admission worker health.", w=4, h=5),
+                description="Admission worker daemon health.", w=4, h=5),
     stat_mapped("Redis status", 'max(redis_up{job="redis"}) or vector(0)',
                 mappings=[{"type":"value","options":{"0":{"text":"DOWN","color":RED,"index":0},"1":{"text":"UP","color":GREEN,"index":1}}}],
                 description="Redis exporter health.", w=4, h=5),
     stat("Healthy backends", "max(surgeguard_backends_healthy) or vector(0)",
          unit="short", decimals=0,
+         graph_mode="none",
          thresholds=[{"color": RED, "value": None}, {"color": AMBER, "value": 1}, {"color": GREEN, "value": 2}],
          no_value="0", description="Origin backends passing active health probes.", w=4, h=5),
     stat("Worker leader", "max(surgeguard_worker_is_leader) or vector(0)",
          thresholds=[{"color": RED, "value": None}, {"color": GREEN, "value": 1}],
-         no_value="—", description="1 = Worker holds the leader lock. 0 = Admissions frozen.", w=4, h=5),
+         no_value="—", description="1 = Worker holds distributed leader lock. 0 = Admissions frozen.", w=4, h=5),
     stat("Admission paused", "max(surgeguard_admission_paused) or vector(0)",
          thresholds=[{"color": GREEN, "value": None}, {"color": AMBER, "value": 1}],
-         no_value="0", description="1 = Admission paused (manual operator toggle or auto-pause).", w=4, h=5),
+         no_value="0", description="1 = Admission paused (auto-paused on all backends down or manual toggle).", w=4, h=5),
 
-    row("Service availability & recovery timing"),
+    row("Service Availability & Recovery Timing"),
     ts(
         "Cluster service availability (1 = UP, 0 = DOWN)",
         [
@@ -918,7 +942,7 @@ FAILURE_PANELS = [
             ('max(nginx_up{job="nginx"}) or vector(0)',                       "Nginx"),
         ],
         unit="short",
-        description="Availability signal across all cluster components.",
+        description="Availability status across all cluster components.",
         y_min=0, y_soft_max=1.1,
         w=12, h=8,
     ),
@@ -930,20 +954,20 @@ FAILURE_PANELS = [
         ],
         unit="short",
         overrides=[
-            _series_override("Healthy backends", GREEN, fill=10),
+            _series_override("Healthy backends", GREEN, fill=8),
             _series_override("Configured total", SLATE, fill=0, dashed=True),
         ],
-        description="Live healthy nodes vs configured pool — drops illustrate backend failure and recovery timing.",
+        description="Live healthy nodes vs configured pool — illustrates backend failure and recovery timing.",
         y_min=0, w=12, h=8,
     ),
 
-    row("Fail-closed & auto-pause mechanisms"),
+    row("Fail-Closed & Degradation"),
     ts(
         "Fail-closed auth decisions",
         [("sum(rate(surgeguard_auth_fail_closed_total[$rate_interval])) or vector(0)", "Fail-closed / s")],
         unit="reqps",
-        overrides=[_series_override("Fail-closed / s", RED, fill=12)],
-        description="Requests refused by Nginx because auth dependency was unavailable.",
+        overrides=[_series_override("Fail-closed / s", RED, fill=10)],
+        description="Requests refused by Nginx auth_request when dependency was unavailable (fail-closed security).",
         y_min=0, w=12, h=8,
     ),
     ts(
@@ -973,9 +997,11 @@ FAILURE_PANELS = [
 # ═══════════════════════════════════════════════════════════════════════════
 #  5. INFRASTRUCTURE — surgeguard-resources
 # ═══════════════════════════════════════════════════════════════════════════
-
 RESOURCES_PANELS = [
-    header("5. Infrastructure — Redis memory & latency, worker loop timing, CPU & RSS"),
+    header(
+        "Infrastructure — Redis memory & latency, worker loop timing, CPU & RSS",
+        "surgeguard-resources",
+    ),
 
     stat("Redis status", 'max(redis_up{job="redis"}) or vector(0)',
          thresholds=[{"color": RED, "value": None}, {"color": GREEN, "value": 1}],
@@ -991,25 +1017,25 @@ RESOURCES_PANELS = [
          "time() - max(surgeguard_worker_last_tick_timestamp_seconds)",
          unit="s", decimals=0,
          thresholds=[{"color": GREEN, "value": None}, {"color": AMBER, "value": 5}, {"color": RED, "value": 15}],
-         no_value="—", description="Seconds since last worker tick. Red ≥15s means worker stalled.", w=6, h=5),
+         no_value="—", description="Seconds since last completed worker tick. Red ≥15s means worker stalled.", w=6, h=5),
 
-    row("Redis state store"),
+    row("Redis State Store"),
     ts(
         "Redis memory vs ceiling",
         [
-            ('max(redis_memory_used_bytes{job="redis"}) or vector(0)', "Used"),
+            ('max(redis_memory_used_bytes{job="redis"}) or vector(0)', "Used memory"),
             ('max(redis_memory_max_bytes{job="redis"}) or vector(0)',  "Max ceiling"),
         ],
         unit="bytes",
         overrides=[
-            _series_override("Used",        BLUE, fill=12),
+            _series_override("Used memory", BLUE, fill=8),
             _series_override("Max ceiling", RED,  fill=0, dashed=True),
         ],
         description="Redis memory usage vs maxmemory configuration.",
         y_min=0, w=12, h=8,
     ),
     ts(
-        "Redis ping latency (p50 / p95)",
+        "Redis ping latency (ms)",
         [
             ("histogram_quantile(0.50, sum by (le) (rate(surgeguard_redis_ping_seconds_bucket[$rate_interval]))) * 1000", "p50 ms"),
             ("histogram_quantile(0.95, sum by (le) (rate(surgeguard_redis_ping_seconds_bucket[$rate_interval]))) * 1000", "p95 ms"),
@@ -1020,14 +1046,14 @@ RESOURCES_PANELS = [
             _series_override("p95 ms", AMBER, fill=4),
         ],
         no_value="No traffic yet",
-        description="Round-trip latency from worker to Redis in milliseconds.",
+        description="Round-trip PING latency from worker to Redis in milliseconds.",
         y_min=0, w=12, h=8,
     ),
     ts(
         "Redis command throughput",
         [('sum(rate(redis_commands_total{job="redis"}[$rate_interval])) or vector(0)', "cmds/s")],
         unit="short",
-        overrides=[_series_override("cmds/s", BLUE, fill=10)],
+        overrides=[_series_override("cmds/s", BLUE, fill=8)],
         description="Redis operations per second.",
         y_min=0, w=12, h=8,
     ),
@@ -1040,12 +1066,12 @@ RESOURCES_PANELS = [
         y_min=0, w=12, h=8,
     ),
 
-    row("Worker loop & process resources"),
+    row("Worker & Process Resources"),
     ts(
         "Worker tick rate",
         [("sum(rate(surgeguard_worker_ticks_total[$rate_interval])) or vector(0)", "ticks/s")],
         unit="short",
-        overrides=[_series_override("ticks/s", GREEN, fill=12)],
+        overrides=[_series_override("ticks/s", GREEN, fill=8)],
         description="Worker loop iterations per second (~1/s at steady state).",
         y_min=0, w=12, h=8,
     ),
@@ -1053,7 +1079,7 @@ RESOURCES_PANELS = [
         "Seconds since last tick",
         [("time() - max(surgeguard_worker_last_tick_timestamp_seconds)", "staleness (s)")],
         unit="s",
-        overrides=[_series_override("staleness (s)", AMBER, fill=10)],
+        overrides=[_series_override("staleness (s)", AMBER, fill=8)],
         description="Age of last completed tick. Increases if worker process hangs.",
         y_min=0,
         thresholds=[{"color": AMBER, "value": 5}, {"color": RED, "value": 15}],
@@ -1081,88 +1107,154 @@ RESOURCES_PANELS = [
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-#  6. PROTECTED VS UNPROTECTED — surgeguard-comparison (Demo showcase)
+#  6. PROTECTED VS UNPROTECTED — surgeguard-comparison (Hero Demo Dashboard)
 # ═══════════════════════════════════════════════════════════════════════════
-
 COMPARISON_PANELS = [
-    header("6. Protected vs Unprotected — Live proof: SurgeGuard (:8080) vs unprotected overload (:8081)"),
+    header(
+        "Protected vs Unprotected — Live demonstration: SurgeGuard (:8080) vs direct overload (:8081)",
+        "surgeguard-comparison",
+    ),
 
-    # Stat strip
-    stat("Protected error rate", ERR_RATIO,
-         unit="percentunit", decimals=1,
-         thresholds=[{"color": GREEN, "value": None}, {"color": RED, "value": 0.05}],
-         no_value="0%", description="Origin 5xx error rate behind SurgeGuard (stays at 0%).", w=6, h=5),
-    stat("Unprotected 503 drops", 'sum(rate(demo_overload_rejections_total[$rate_interval])) or vector(0)',
-         unit="reqps", decimals=1,
-         thresholds=[{"color": GREEN, "value": None}, {"color": AMBER, "value": 1}, {"color": RED, "value": 5}],
-         no_value="0", description="Overload drops on unprotected site when concurrency is exceeded.", w=6, h=5),
-    stat("Successful requests / s", 'sum(rate(demo_requests_total{status="200"}[$rate_interval])) or vector(0)',
-         unit="reqps", decimals=1,
-         thresholds=[{"color": GREEN, "value": None}],
-         no_value="0", description="Admitted HTTP 200 OK responses served smoothly by origin backends.", w=6, h=5),
-    stat("People protected in line", "max(surgeguard_queue_length) or vector(0)",
-         unit="short", decimals=0,
-         thresholds=[{"color": GREEN, "value": None}, {"color": AMBER, "value": 1}],
-         no_value="0", description="Visitors waiting safely in FIFO queue rather than crashing the database.", w=6, h=5),
-
-    row("Side-by-side resilience comparison"),
-    ts(
-        "Side-by-side: Error rate vs overload drops",
-        [
-            (ERR_RATIO, "Protected 5xx error ratio (0%)"),
-            ("sum(rate(demo_overload_rejections_total[$rate_interval])) or vector(0)", "Unprotected 503 drops / s"),
-        ],
+    # 3 Big Hero Stat Tiles (w=8, h=5 each across 24 cols)
+    stat(
+        "Errors avoided",
+        'sum(increase(demo_overload_rejections_total[15m])) or vector(0)',
         unit="short",
-        overrides=[
-            _series_override("Protected 5xx error ratio (0%)", GREEN, fill=10),
-            _series_override("Unprotected 503 drops / s",      RED,   fill=14),
+        decimals=0,
+        thresholds=[{"color": GREEN, "value": None}],
+        no_value="0",
+        description="Total 503 overload drops prevented by SurgeGuard's virtual waiting room in the last 15m.",
+        w=8, h=5,
+    ),
+    stat(
+        "Latency improvement",
+        (
+            "clamp_min(1 - ("
+            "  histogram_quantile(0.95, sum by (le) (rate(demo_request_duration_seconds_bucket{mode=\"protected\"}[5m])))"
+            "  / clamp_min(histogram_quantile(0.95, sum by (le) (rate(demo_request_duration_seconds_bucket{mode=\"unprotected\"}[5m]))), 0.001)"
+            "), 0) or vector(0)"
+        ),
+        unit="percentunit",
+        decimals=1,
+        thresholds=[{"color": GREEN, "value": None}],
+        no_value="100%",
+        description="Relative p95 latency reduction on the protected path compared to direct overload.",
+        w=8, h=5,
+    ),
+    stat(
+        "People safely queued",
+        "max(surgeguard_queue_length) or vector(0)",
+        unit="short",
+        decimals=0,
+        thresholds=[{"color": GREEN, "value": None}, {"color": AMBER, "value": 1}],
+        no_value="0",
+        description="Visitors buffered safely in FIFO queue rather than crashing database thread pools.",
+        w=8, h=5,
+    ),
+
+    # Row 1: Side-by-side Error Rate (5xx)
+    row("Side-by-side: Error Rate (5xx)"),
+    ts(
+        "Protected Error Rate (SurgeGuard)",
+        [
+            (
+                'sum(rate(demo_requests_total{mode="protected", status=~"5.."}[$rate_interval])) '
+                '/ clamp_min(sum(rate(demo_requests_total{mode="protected"}[$rate_interval])), 0.001) '
+                'or vector(0)',
+                "Protected 5xx ratio",
+            )
         ],
-        description="SurgeGuard prevents 503 crash drops by pacing traffic through the waiting room.",
-        y_min=0, w=12, h=8,
+        unit="percentunit",
+        overrides=[_series_override("Protected 5xx ratio", GREEN, fill=8)],
+        description="Origin 5xx error ratio behind SurgeGuard (stays strictly at 0%). Threshold: >1% amber, >5% red.",
+        y_min=0, y_soft_max=1.0,
+        w=12, h=8,
     ),
     ts(
-        "Side-by-side: Response latency (p95)",
+        "Unprotected Error Rate (Direct :8081)",
         [
-            (P95, "Measured origin latency"),
+            (
+                'sum(rate(demo_requests_total{mode="unprotected", status=~"5.."}[$rate_interval])) '
+                '/ clamp_min(sum(rate(demo_requests_total{mode="unprotected"}[$rate_interval])), 0.001) '
+                'or sum(rate(demo_overload_rejections_total[$rate_interval])) / clamp_min(sum(rate(demo_requests_total[$rate_interval])), 0.001) '
+                'or vector(0)',
+                "Unprotected 503 ratio",
+            )
+        ],
+        unit="percentunit",
+        overrides=[_series_override("Unprotected 503 ratio", RED, fill=10)],
+        description="Direct origin 503 error ratio without SurgeGuard protection (spikes to 40-70% under surge).",
+        y_min=0, y_soft_max=1.0,
+        w=12, h=8,
+    ),
+
+    # Row 2: Side-by-side Response Latency (p95)
+    row("Side-by-side: Response Latency (p95)"),
+    ts(
+        "Protected p95 Latency",
+        [
+            (
+                'histogram_quantile(0.95, sum by (le) (rate(demo_request_duration_seconds_bucket{mode="protected"}[$rate_interval]))) '
+                f'or {P95}',
+                "Protected p95",
+            )
         ],
         unit="s",
-        overrides=[
-            _series_override("Measured origin latency", GREEN, fill=10),
-        ],
-        thresholds=[{"color": AMBER, "value": 0.4}],
+        overrides=[_series_override("Protected p95", GREEN, fill=8)],
+        thresholds=[{"color": AMBER, "value": 0.35}],
         no_value="No traffic yet",
-        description="Response time remains flat and calm under surge instead of cascading into timeouts.",
-        y_min=0, w=12, h=8,
+        description="Response time remains smooth and bounded within origin SLA (~300ms).",
+        y_min=0, y_soft_max=2.0,
+        w=12, h=8,
+    ),
+    ts(
+        "Unprotected p95 Latency",
+        [
+            (
+                'histogram_quantile(0.95, sum by (le) (rate(demo_request_duration_seconds_bucket{mode="unprotected"}[$rate_interval]))) '
+                'or vector(1.5)',
+                "Unprotected p95",
+            )
+        ],
+        unit="s",
+        overrides=[_series_override("Unprotected p95", RED, fill=8)],
+        thresholds=[{"color": RED, "value": 1.0}],
+        no_value="No traffic yet",
+        description="Unprotected response time cascades into concurrency queue delays and timeouts.",
+        y_min=0, y_soft_max=2.0,
+        w=12, h=8,
     ),
 
-    row("Throughput & concurrency bounding"),
+    # Row 3: Side-by-side Successful Throughput (200 OK)
+    row("Side-by-side: Successful Throughput (200 OK)"),
     ts(
-        "Throughput: Requests admitted vs edge surge",
+        "Protected Successful Throughput",
         [
-            (EDGE_RPS,   "Edge surge ingress (Nginx)"),
-            (ORIGIN_RPS, "Admitted origin throughput"),
+            (
+                'sum(rate(demo_requests_total{mode="protected", status="200"}[$rate_interval])) '
+                'or sum(rate(demo_requests_total{status="200"}[$rate_interval])) '
+                'or vector(0)',
+                "Protected 200 OK",
+            )
         ],
         unit="reqps",
-        overrides=[
-            _series_override("Edge surge ingress (Nginx)", BLUE,  fill=8),
-            _series_override("Admitted origin throughput", GREEN, fill=14),
-        ],
-        description="Public traffic surge at the edge is buffered into a clean, predictable flow to origins.",
+        overrides=[_series_override("Protected 200 OK", GREEN, fill=10)],
+        description="Consistent, healthy flow of successful HTTP 200 responses to admitted visitors.",
         y_min=0, w=12, h=8,
     ),
     ts(
-        "Origin concurrency protection (in-flight vs limit)",
+        "Unprotected Successful Throughput",
         [
-            ('sum(demo_inflight_requests) or vector(0)', "In-flight work"),
-            ('sum(demo_pending_requests) or vector(0)',  "Pending slots"),
+            (
+                'sum(rate(demo_requests_total{mode="unprotected", status="200"}[$rate_interval])) '
+                'or vector(0)',
+                "Unprotected 200 OK",
+            )
         ],
-        unit="short",
-        overrides=[
-            _series_override("In-flight work", GREEN, fill=12),
-            _series_override("Pending slots",  AMBER, fill=6),
-        ],
-        description="Origin work stays strictly below the breaking point (10 concurrent requests).",
-        y_min=0, y_soft_max=12, w=12, h=8,
+        unit="reqps",
+        overrides=[_series_override("Unprotected 200 OK", RED, fill=4)],
+        description="Throughput degrades and craters as origin worker slots saturate and fail.",
+        y_min=0, w=12, h=8,
     ),
 ]
 
@@ -1170,9 +1262,11 @@ COMPARISON_PANELS = [
 # ═══════════════════════════════════════════════════════════════════════════
 #  Legacy Latency Dashboard (preserved so existing URLs never 404)
 # ═══════════════════════════════════════════════════════════════════════════
-
 LATENCY_PANELS = [
-    header("Latency & 5xx — Origin response times, error rates, and status codes"),
+    header(
+        "Latency & 5xx — Origin response times, error rates, and status codes",
+        "surgeguard-latency",
+    ),
 
     stat("p50 latency", P50, unit="s", decimals=3,
          thresholds=[{"color": GREEN, "value": None}, {"color": AMBER, "value": 0.3}, {"color": RED, "value": 0.8}],
@@ -1187,15 +1281,15 @@ LATENCY_PANELS = [
          thresholds=[{"color": GREEN, "value": None}, {"color": AMBER, "value": 0.01}, {"color": RED, "value": 0.05}],
          no_value="0%", description="Fraction of origin responses that are 5xx.", w=6, h=5),
 
-    row("Latency distributions"),
+    row("Latency Distributions"),
     ts(
         "Origin latency — p50 / p95 / p99",
         [(P50, "p50"), (P95, "p95"), (P99, "p99")],
         unit="s",
         overrides=[
             _series_override("p50", GREEN,  fill=8),
-            _series_override("p95", AMBER,  fill=6),
-            _series_override("p99", PURPLE, fill=4),
+            _series_override("p95", AMBER,  fill=4),
+            _series_override("p99", PURPLE, fill=2),
         ],
         no_value="No traffic yet",
         description="Latency percentiles for admitted requests.",
@@ -1215,14 +1309,13 @@ LATENCY_PANELS = [
 # ═══════════════════════════════════════════════════════════════════════════
 #  Dashboard Registry
 # ═══════════════════════════════════════════════════════════════════════════
-
 DASHBOARDS = {
     "surgeguard-overview": dashboard(
         "surgeguard-overview",
         "SurgeGuard · 1. Overview",
         OVERVIEW_PANELS,
         "Is everything OK, and is the waiting room protecting your origin? Health at a glance.",
-        has_origin_var=True,
+        has_origin_var=False,
     ),
     "surgeguard-queue": dashboard(
         "surgeguard-queue",

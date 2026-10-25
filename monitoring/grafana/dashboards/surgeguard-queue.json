@@ -8,7 +8,7 @@
   ],
   "timezone": "browser",
   "schemaVersion": 39,
-  "version": 4,
+  "version": 5,
   "refresh": "5s",
   "time": {
     "from": "now-15m",
@@ -22,7 +22,7 @@
       "title": "",
       "transparent": true,
       "options": {
-        "content": "## 2. Queue & Admission \u2014 Queue length, admission velocity, wait times, token lifecycle\n\n| [1. Overview](/grafana/d/surgeguard-overview?{__url_time_range}) | [2. Queue & Admission](/grafana/d/surgeguard-queue?{__url_time_range}) | [3. Backends & Traffic](/grafana/d/surgeguard-backends?{__url_time_range}) | [4. Reliability & Recovery](/grafana/d/surgeguard-failure?{__url_time_range}) | [5. Infrastructure](/grafana/d/surgeguard-resources?{__url_time_range}) | [6. Protected vs Unprotected](/grafana/d/surgeguard-comparison?{__url_time_range}) |",
+        "content": "### Queue & Admission \u2014 Queue length, admission velocity, wait times, token lifecycle\n\n| [1. Overview](/grafana/d/surgeguard-overview?{__url_time_range}) | **[2. Queue & Admission](/grafana/d/surgeguard-queue?{__url_time_range})** | [3. Backends & Traffic](/grafana/d/surgeguard-backends?{__url_time_range}) | [4. Reliability & Recovery](/grafana/d/surgeguard-failure?{__url_time_range}) | [5. Infrastructure](/grafana/d/surgeguard-resources?{__url_time_range}) | [6. Protected vs Unprotected](/grafana/d/surgeguard-comparison?{__url_time_range}) |",
         "mode": "markdown"
       },
       "id": 1,
@@ -30,13 +30,13 @@
         "x": 0,
         "y": 0,
         "w": 24,
-        "h": 2
+        "h": 3
       }
     },
     {
       "type": "stat",
       "title": "Waiting now",
-      "description": "Visitors currently in the FIFO waiting room.",
+      "description": "Visitors currently waiting in the FIFO queue.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -52,7 +52,7 @@
         }
       ],
       "options": {
-        "colorMode": "background",
+        "colorMode": "value",
         "graphMode": "area",
         "textMode": "auto",
         "orientation": "auto",
@@ -96,7 +96,7 @@
       "id": 2,
       "gridPos": {
         "x": 0,
-        "y": 2,
+        "y": 3,
         "w": 6,
         "h": 5
       }
@@ -104,7 +104,7 @@
     {
       "type": "stat",
       "title": "Admitted & active",
-      "description": "Visitors currently holding a valid admission token.",
+      "description": "Visitors currently holding an active admission token.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -120,7 +120,7 @@
         }
       ],
       "options": {
-        "colorMode": "background",
+        "colorMode": "value",
         "graphMode": "area",
         "textMode": "auto",
         "orientation": "auto",
@@ -156,15 +156,15 @@
       "id": 3,
       "gridPos": {
         "x": 6,
-        "y": 2,
+        "y": 3,
         "w": 6,
         "h": 5
       }
     },
     {
       "type": "stat",
-      "title": "Admission rate",
-      "description": "Tokens minted per second (measured).",
+      "title": "Measured admission rate",
+      "description": "Tokens minted per second by the worker daemon.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -180,7 +180,7 @@
         }
       ],
       "options": {
-        "colorMode": "background",
+        "colorMode": "value",
         "graphMode": "area",
         "textMode": "auto",
         "orientation": "auto",
@@ -216,7 +216,7 @@
       "id": 4,
       "gridPos": {
         "x": 12,
-        "y": 2,
+        "y": 3,
         "w": 6,
         "h": 5
       }
@@ -224,7 +224,7 @@
     {
       "type": "stat",
       "title": "Configured rate",
-      "description": "Configured admission rate setting.",
+      "description": "Configured admission rate setting in SurgeGuard policy.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -240,7 +240,7 @@
         }
       ],
       "options": {
-        "colorMode": "background",
+        "colorMode": "value",
         "graphMode": "area",
         "textMode": "auto",
         "orientation": "auto",
@@ -276,19 +276,19 @@
       "id": 5,
       "gridPos": {
         "x": 18,
-        "y": 2,
+        "y": 3,
         "w": 6,
         "h": 5
       }
     },
     {
       "type": "row",
-      "title": "Queue length & admission rate",
+      "title": "Queue Dynamics & Admission",
       "collapsed": false,
       "id": 6,
       "gridPos": {
         "x": 0,
-        "y": 7,
+        "y": 8,
         "w": 24,
         "h": 1
       }
@@ -321,7 +321,7 @@
           },
           "custom": {
             "lineWidth": 2,
-            "fillOpacity": 12,
+            "fillOpacity": 8,
             "gradientMode": "opacity",
             "showPoints": "never",
             "pointSize": 4,
@@ -361,7 +361,7 @@
               },
               {
                 "id": "custom.fillOpacity",
-                "value": 16
+                "value": 14
               }
             ]
           }
@@ -369,7 +369,7 @@
       },
       "options": {
         "legend": {
-          "displayMode": "list",
+          "displayMode": "hidden",
           "placement": "bottom",
           "calcs": []
         },
@@ -381,15 +381,15 @@
       "id": 7,
       "gridPos": {
         "x": 0,
-        "y": 8,
+        "y": 9,
         "w": 12,
         "h": 8
       }
     },
     {
       "type": "timeseries",
-      "title": "Admission rate \u2014 measured vs configured vs effective",
-      "description": "Measured admission rate vs configured and health-adjusted effective targets.",
+      "title": "Admission rate \u2014 measured vs target",
+      "description": "Measured rate (solid green) vs configured policy rate (dashed grey) and health-adjusted effective target (dashed amber).",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -398,7 +398,7 @@
         {
           "refId": "A",
           "expr": "sum(rate(surgeguard_admissions_total[$rate_interval])) or vector(0)",
-          "legendFormat": "Measured",
+          "legendFormat": "Measured rate",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -406,8 +406,8 @@
         },
         {
           "refId": "B",
-          "expr": "max(surgeguard_admission_rate_effective) or vector(0)",
-          "legendFormat": "Effective target",
+          "expr": "max(surgeguard_admission_rate_configured) or vector(0)",
+          "legendFormat": "Configured target",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -415,8 +415,8 @@
         },
         {
           "refId": "C",
-          "expr": "max(surgeguard_admission_rate_configured) or vector(0)",
-          "legendFormat": "Configured target",
+          "expr": "max(surgeguard_admission_rate_effective) or vector(0)",
+          "legendFormat": "Effective target",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -432,7 +432,7 @@
           },
           "custom": {
             "lineWidth": 2,
-            "fillOpacity": 12,
+            "fillOpacity": 8,
             "gradientMode": "opacity",
             "showPoints": "never",
             "pointSize": 4,
@@ -459,7 +459,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "Measured"
+              "options": "Measured rate"
             },
             "properties": [
               {
@@ -471,21 +471,21 @@
               },
               {
                 "id": "custom.fillOpacity",
-                "value": 14
+                "value": 10
               }
             ]
           },
           {
             "matcher": {
               "id": "byName",
-              "options": "Effective target"
+              "options": "Configured target"
             },
             "properties": [
               {
                 "id": "color",
                 "value": {
                   "mode": "fixed",
-                  "fixedColor": "#f59e0b"
+                  "fixedColor": "#94a3b8"
                 }
               },
               {
@@ -507,14 +507,14 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "Configured target"
+              "options": "Effective target"
             },
             "properties": [
               {
                 "id": "color",
                 "value": {
                   "mode": "fixed",
-                  "fixedColor": "#64748b"
+                  "fixedColor": "#f59e0b"
                 }
               },
               {
@@ -549,19 +549,19 @@
       "id": 8,
       "gridPos": {
         "x": 12,
-        "y": 8,
+        "y": 9,
         "w": 12,
         "h": 8
       }
     },
     {
       "type": "row",
-      "title": "Wait times & join outcomes",
+      "title": "Wait Times & Security",
       "collapsed": false,
       "id": 9,
       "gridPos": {
         "x": 0,
-        "y": 16,
+        "y": 17,
         "w": 24,
         "h": 1
       }
@@ -569,7 +569,7 @@
     {
       "type": "timeseries",
       "title": "Queue wait time (p50 / p95)",
-      "description": "Time from joining the queue until receiving an admission token.",
+      "description": "Time from joining queue until receiving admission token.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -603,7 +603,7 @@
           },
           "custom": {
             "lineWidth": 2,
-            "fillOpacity": 12,
+            "fillOpacity": 8,
             "gradientMode": "opacity",
             "showPoints": "never",
             "pointSize": 4,
@@ -642,7 +642,7 @@
               },
               {
                 "id": "custom.fillOpacity",
-                "value": 10
+                "value": 8
               }
             ]
           },
@@ -661,7 +661,7 @@
               },
               {
                 "id": "custom.fillOpacity",
-                "value": 6
+                "value": 4
               }
             ]
           }
@@ -681,15 +681,15 @@
       "id": 10,
       "gridPos": {
         "x": 0,
-        "y": 17,
+        "y": 18,
         "w": 12,
         "h": 8
       }
     },
     {
       "type": "timeseries",
-      "title": "Queue joins by mode",
-      "description": "Arrivals by admission path (direct vs queued).",
+      "title": "Tokens issued vs rejected by reason",
+      "description": "Token minting rate vs rejected tokens (expired, tampered signature, revoked).",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -697,8 +697,17 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (mode) (rate(surgeguard_queue_joins_total[$rate_interval]))",
-          "legendFormat": "{{mode}}",
+          "expr": "sum(rate(surgeguard_tokens_issued_total[$rate_interval])) or vector(0)",
+          "legendFormat": "Tokens issued",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        },
+        {
+          "refId": "B",
+          "expr": "sum by (reason) (rate(surgeguard_token_rejections_total[$rate_interval]))",
+          "legendFormat": "Rejected: {{reason}}",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -714,7 +723,7 @@
           },
           "custom": {
             "lineWidth": 2,
-            "fillOpacity": 12,
+            "fillOpacity": 8,
             "gradientMode": "opacity",
             "showPoints": "never",
             "pointSize": 4,
@@ -723,7 +732,7 @@
             "axisBorderShow": false,
             "axisGridShow": true,
             "stacking": {
-              "mode": "normal"
+              "mode": "none"
             }
           },
           "thresholds": {
@@ -737,7 +746,27 @@
           },
           "min": 0
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Tokens issued"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#10b981"
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 8
+              }
+            ]
+          }
+        ]
       },
       "options": {
         "legend": {
@@ -753,316 +782,7 @@
       "id": 11,
       "gridPos": {
         "x": 12,
-        "y": 17,
-        "w": 12,
-        "h": 8
-      }
-    },
-    {
-      "type": "row",
-      "title": "Token lifecycle & security",
-      "collapsed": false,
-      "id": 12,
-      "gridPos": {
-        "x": 0,
-        "y": 25,
-        "w": 24,
-        "h": 1
-      }
-    },
-    {
-      "type": "timeseries",
-      "title": "Tokens issued & validated",
-      "description": "Token minting rate and validation outcomes at /internal/auth.",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sum(rate(surgeguard_tokens_issued_total[$rate_interval])) or vector(0)",
-          "legendFormat": "Issued",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          }
-        },
-        {
-          "refId": "B",
-          "expr": "sum by (result) (rate(surgeguard_token_validations_total[$rate_interval]))",
-          "legendFormat": "Validation: {{result}}",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          }
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "reqps",
-          "noValue": "No traffic yet",
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "lineWidth": 2,
-            "fillOpacity": 12,
-            "gradientMode": "opacity",
-            "showPoints": "never",
-            "pointSize": 4,
-            "spanNulls": false,
-            "lineInterpolation": "smooth",
-            "axisBorderShow": false,
-            "axisGridShow": true,
-            "stacking": {
-              "mode": "none"
-            }
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "#10b981",
-                "value": null
-              }
-            ]
-          },
-          "min": 0
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "calcs": []
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "id": 13,
-      "gridPos": {
-        "x": 0,
-        "y": 26,
-        "w": 12,
-        "h": 8
-      }
-    },
-    {
-      "type": "timeseries",
-      "title": "Token rejections by reason",
-      "description": "Security rejections (expired, tampered signature, revoked).",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sum by (reason) (rate(surgeguard_token_rejections_total[$rate_interval]))",
-          "legendFormat": "{{reason}}",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          }
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "reqps",
-          "noValue": "No traffic yet",
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "lineWidth": 2,
-            "fillOpacity": 12,
-            "gradientMode": "opacity",
-            "showPoints": "never",
-            "pointSize": 4,
-            "spanNulls": false,
-            "lineInterpolation": "smooth",
-            "axisBorderShow": false,
-            "axisGridShow": true,
-            "stacking": {
-              "mode": "normal"
-            }
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "#10b981",
-                "value": null
-              }
-            ]
-          },
-          "min": 0
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "calcs": []
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "id": 14,
-      "gridPos": {
-        "x": 12,
-        "y": 26,
-        "w": 12,
-        "h": 8
-      }
-    },
-    {
-      "type": "timeseries",
-      "title": "Visitors expired (heartbeat timeout)",
-      "description": "Visitors purged from queue after abandoned polling.",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sum by (reason) (rate(surgeguard_visitors_expired_total[$rate_interval]))",
-          "legendFormat": "{{reason}}",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          }
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "reqps",
-          "noValue": "No traffic yet",
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "lineWidth": 2,
-            "fillOpacity": 12,
-            "gradientMode": "opacity",
-            "showPoints": "never",
-            "pointSize": 4,
-            "spanNulls": false,
-            "lineInterpolation": "smooth",
-            "axisBorderShow": false,
-            "axisGridShow": true,
-            "stacking": {
-              "mode": "none"
-            }
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "#10b981",
-                "value": null
-              }
-            ]
-          },
-          "min": 0
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "calcs": []
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "id": 15,
-      "gridPos": {
-        "x": 0,
-        "y": 34,
-        "w": 12,
-        "h": 8
-      }
-    },
-    {
-      "type": "timeseries",
-      "title": "Rate-limited join attempts",
-      "description": "Join attempts throttled by the application rate limiter.",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sum by (bucket) (rate(surgeguard_rate_limited_total[$rate_interval]))",
-          "legendFormat": "{{bucket}}",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          }
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "reqps",
-          "noValue": "No traffic yet",
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "lineWidth": 2,
-            "fillOpacity": 12,
-            "gradientMode": "opacity",
-            "showPoints": "never",
-            "pointSize": 4,
-            "spanNulls": false,
-            "lineInterpolation": "smooth",
-            "axisBorderShow": false,
-            "axisGridShow": true,
-            "stacking": {
-              "mode": "none"
-            }
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "#10b981",
-                "value": null
-              }
-            ]
-          },
-          "min": 0
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "calcs": []
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "id": 16,
-      "gridPos": {
-        "x": 12,
-        "y": 34,
+        "y": 18,
         "w": 12,
         "h": 8
       }
@@ -1074,18 +794,13 @@
         "name": "rate_interval",
         "type": "custom",
         "label": "Rate Window",
-        "query": "30s,1m,2m,5m",
+        "query": "1m,2m,5m",
         "current": {
           "text": "1m",
           "value": "1m",
           "selected": true
         },
         "options": [
-          {
-            "text": "30s",
-            "value": "30s",
-            "selected": false
-          },
           {
             "text": "1m",
             "value": "1m",
@@ -1102,7 +817,7 @@
             "selected": false
           }
         ],
-        "hide": 0
+        "hide": 2
       }
     ]
   },
@@ -1112,57 +827,25 @@
         "builtIn": 1,
         "datasource": "-- Grafana --",
         "enable": true,
-        "hide": false,
+        "hide": true,
         "name": "Annotations & Alerts",
         "type": "dashboard"
       },
       {
-        "name": "Backend down",
+        "name": "Events",
         "datasource": {
           "type": "prometheus",
           "uid": "prometheus"
         },
         "enable": true,
         "hide": false,
-        "expr": "changes(surgeguard_backend_up[30s]) != 0",
+        "expr": "changes(surgeguard_backend_up[30s]) != 0 or changes(surgeguard_admission_paused[30s]) != 0 or changes(surgeguard_worker_is_leader[30s]) != 0",
         "step": "30s",
-        "titleFormat": "Backend probe change",
-        "textFormat": "{{backend}}",
-        "iconColor": "#ef4444",
-        "tags": [
-          "backend"
-        ]
-      },
-      {
-        "name": "Admission paused/resumed",
-        "datasource": {
-          "type": "prometheus",
-          "uid": "prometheus"
-        },
-        "enable": true,
-        "hide": false,
-        "expr": "changes(surgeguard_admission_paused[30s]) != 0",
-        "step": "30s",
-        "titleFormat": "Admission state change",
+        "titleFormat": "Cluster Event",
+        "textFormat": "Backend probe transition, admission pause/resume, or leader change",
         "iconColor": "#f59e0b",
         "tags": [
-          "admission"
-        ]
-      },
-      {
-        "name": "Worker leader change",
-        "datasource": {
-          "type": "prometheus",
-          "uid": "prometheus"
-        },
-        "enable": true,
-        "hide": false,
-        "expr": "changes(surgeguard_worker_is_leader[30s]) != 0",
-        "step": "30s",
-        "titleFormat": "Leader election",
-        "iconColor": "#8b5cf6",
-        "tags": [
-          "worker"
+          "event"
         ]
       }
     ]
