@@ -96,10 +96,24 @@ export function LoginForm({
         {busy ? "Signing in…" : "Sign in"}
       </Button>
       {demo ? (
-        <Button type="button" className="w-full" onClick={signInAsDemo} disabled={busy}>
-          <Eye className="size-4" aria-hidden />
-          Use demo account
-        </Button>
+        <div className="pt-2">
+          <div className="relative mb-3 flex items-center justify-center">
+            <span className="w-full border-t border-border" />
+            <span className="bg-surface px-2 text-[11px] font-medium uppercase tracking-wider text-subtle">or</span>
+            <span className="w-full border-t border-border" />
+          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="w-full border border-border/70 text-xs text-muted hover:border-border-strong hover:text-foreground"
+            onClick={signInAsDemo}
+            disabled={busy}
+          >
+            <Eye className="size-3.5" aria-hidden />
+            Use demo account
+          </Button>
+        </div>
       ) : null}
     </form>
   );

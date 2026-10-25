@@ -38,6 +38,7 @@ export const QUERIES = {
 export type QueryName = keyof typeof QUERIES;
 
 export const RANGES = {
+  "5m": { seconds: 300, step: 5 },
   "15m": { seconds: 900, step: 15 },
   "1h": { seconds: 3600, step: 30 },
   "6h": { seconds: 21600, step: 120 },

@@ -1,11 +1,13 @@
 "use client";
 
-import { Clock, ExternalLink, Server } from "lucide-react";
-import { PageHeader } from "@/components/admin/AdminShell";
+import { useState } from "react";
+import { Activity, ChevronDown, ExternalLink, Server } from "lucide-react";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { EventList } from "@/components/admin/EventList";
-import { StatTile } from "@/components/admin/StatTile";
+import { StatCard } from "@/components/ui/StatCard";
+import { StatusBadge } from "@/components/ui/StatusBadge";
 import type { BackendsResponse, SeriesResponse } from "@/components/admin/types";
-import { Badge, Card } from "@/components/ui/primitives";
+import { Button, Card } from "@/components/ui/primitives";
 import { StateView } from "@/components/ui/StateView";
 import { usePolling } from "@/hooks/usePolling";
 import { formatMs, formatNumber, formatRelative } from "@/lib/format";
@@ -20,6 +22,8 @@ function byOrigin(data: SeriesResponse | null): Map<string, number | null> {
 }
 
 export function BackendsView() {
+  const [showAdvanced, setShowAdvanced] = useState(false);
+
   const backends = usePolling<BackendsResponse>("/api/admin/backends", 3000);
   const rps = usePolling<SeriesResponse>("/api/metrics/instant?name=origin_rps_by_origin", 10_000);
   const p95 = usePolling<SeriesResponse>("/api/metrics/instant?name=origin_p95_by_origin", 10_000);
@@ -41,7 +45,7 @@ export function BackendsView() {
     <>
       <PageHeader
         title="Protected Backends"
-        description="Origin instances shielded by SurgeGuard. Active health probes and real-time load distribution."
+        description="Origin servers shielded by SurgeGuard with automatic health probes and load balancing."
         breadcrumbs={[{ label: "Operations", href: "/dashboard" }, { label: "Backends" }]}
         actions={
           <a
@@ -56,43 +60,51 @@ export function BackendsView() {
         }
       />
 
-      {/* SUMMARY STAT TILES */}
-      <section aria-label="Backend Pool Summary" className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <StatTile
-          label="Total Instances"
+      {/* SUMMARY STAT CARDS */}
+      <section aria-label="Backend Pool Summary" className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <StatCard
+          label="Total Backends"
           loading={backends.status === "loading"}
-          value={totalCount ? formatNumber(totalCount) : null}
-          context="Configured origin nodes"
+          value={totalCount ? formatNumber(totalCount) : "—"}
+          description="Configured origin instances"
         />
-        <StatTile
-          label="Healthy Pool"
+        <StatCard
+          label="Cluster Health"
           loading={backends.status === "loading"}
-          value={totalCount ? `${healthyCount}/${totalCount}` : null}
-          emphasis={!totalCount ? "default" : isAllHealthy ? "default" : healthyCount === 0 ? "danger" : "warning"}
-          context={isAllHealthy ? "All instances passing probes" : `${totalCount - healthyCount} nodes failing checks`}
+          value={totalCount ? `${healthyCount} / ${totalCount}` : "—"}
+          badge={
+            totalCount > 0 ? (
+              <StatusBadge status={healthyCount === 0 ? "down" : isAllHealthy ? "healthy" : "degraded"} />
+            ) : undefined
+          }
+          description={
+            !totalCount
+              ? "Checking probes"
+              : isAllHealthy
+                ? "All origins responding normally"
+                : `${totalCount - healthyCount} backend node offline`
+          }
+          tone={!totalCount ? "default" : isAllHealthy ? "success" : healthyCount === 0 ? "danger" : "warning"}
         />
-        <StatTile
+        <StatCard
           label="Probe Latency"
           loading={backends.status === "loading"}
-          value={avgProbeLatency !== null ? `${avgProbeLatency.toFixed(1)}` : null}
+          value={avgProbeLatency !== null ? `${avgProbeLatency.toFixed(1)}` : "—"}
           unit="ms"
-          context="Average roundtrip check latency"
-        />
-        <StatTile
-          label="Probing Cadence"
-          loading={backends.status === "loading"}
-          value={backends.data?.interval_seconds ? `${backends.data.interval_seconds}` : null}
-          unit="s"
-          context={backends.data?.checks_running ? "Admission worker active" : "Probing daemon inactive"}
+          description={
+            backends.data?.interval_seconds
+              ? `Checked every ${backends.data.interval_seconds}s by worker`
+              : "Roundtrip health check response"
+          }
         />
       </section>
 
-      {/* ORIGIN ENTITY CARDS */}
-      <section aria-label="Configured Origin Instances" className="mb-8">
+      {/* ORIGIN ENTITY CARDS: ONE CARD PER BACKEND */}
+      <section aria-label="Configured Origin Instances" className="mb-6">
         <div className="mb-3 flex items-center justify-between">
           <div>
-            <h2 className="text-base font-semibold text-foreground">Origin Nodes &amp; Workload</h2>
-            <p className="text-xs text-muted">Active HTTP health checks and telemetry metrics per instance</p>
+            <h2 className="text-base font-semibold text-foreground">Origin Nodes</h2>
+            <p className="text-xs text-muted">Status, active workload, and last health verification</p>
           </div>
           {backends.data ? (
             <span className="text-xs text-subtle">
@@ -104,7 +116,7 @@ export function BackendsView() {
         {backends.status === "loading" ? (
           <div className="grid gap-4 sm:grid-cols-2">
             {[0, 1].map((i) => (
-              <div key={i} className="h-44 animate-pulse rounded-2xl border border-border bg-surface p-5" />
+              <div key={i} className="h-36 animate-pulse rounded-2xl border border-border bg-surface p-5" />
             ))}
           </div>
         ) : !backends.data ? (
@@ -123,7 +135,7 @@ export function BackendsView() {
               const isHealthy = b.healthy === true;
 
               return (
-                <Card key={b.name} className="flex flex-col justify-between p-5 transition-all hover:border-accent/40">
+                <Card key={b.name} className="p-5 flex flex-col justify-between transition-all hover:border-border-strong">
                   <div>
                     {/* Header: Name, Host, Status */}
                     <div className="flex items-start justify-between gap-3">
@@ -132,22 +144,15 @@ export function BackendsView() {
                           <Server className="size-4 text-accent shrink-0" />
                           <h3 className="text-base font-semibold text-foreground truncate">{b.name}</h3>
                         </div>
-                        <p className="mt-1 font-mono text-xs text-subtle truncate" title={b.url}>
+                        <p className="mt-0.5 font-mono text-xs text-subtle truncate" title={b.url}>
                           {b.url}
                         </p>
                       </div>
                       <div className="shrink-0">
-                        {b.healthy === null ? (
-                          <Badge>Unknown</Badge>
-                        ) : isHealthy ? (
-                          <Badge tone="success" dot>
-                            Healthy
-                          </Badge>
-                        ) : (
-                          <Badge tone="danger" dot>
-                            Down
-                          </Badge>
-                        )}
+                        <StatusBadge
+                          status={b.healthy === null ? undefined : isHealthy ? "healthy" : "down"}
+                          label={b.healthy === null ? "Unknown" : undefined}
+                        />
                       </div>
                     </div>
 
@@ -157,47 +162,34 @@ export function BackendsView() {
                       </div>
                     ) : null}
 
-                    {/* Operational Telemetry Grid */}
-                    <div className="mt-5 grid grid-cols-2 gap-3 border-t border-border pt-4 sm:grid-cols-4 text-xs">
+                    {/* Simple metrics: Load and Last Check */}
+                    <div className="mt-4 grid grid-cols-2 gap-3 border-t border-border pt-3 text-xs">
                       <div>
-                        <p className="text-subtle font-medium">Request Inflow</p>
-                        <p className="mt-1 font-mono text-sm font-semibold text-foreground">
-                          {!promOk ? "—" : rate === undefined || rate === null ? "No traffic" : `${formatNumber(rate, 1)} req/s`}
+                        <p className="text-subtle font-medium">Inflow Load</p>
+                        <p className="mt-0.5 font-semibold text-foreground">
+                          {!promOk ? "—" : rate === undefined || rate === null || rate === 0 ? "Idle" : `${formatNumber(rate, 1)} req/s`}
                         </p>
                       </div>
                       <div>
-                        <p className="text-subtle font-medium">p95 Latency</p>
-                        <p className="mt-1 font-mono text-sm font-semibold text-foreground">
-                          {!promOk ? "—" : latency === undefined || latency === null ? "No traffic" : formatMs(latency * 1000)}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-subtle font-medium">Probe Latency</p>
-                        <p className="mt-1 font-mono text-sm font-semibold text-foreground">
-                          {formatMs(b.last_latency_ms ?? null)}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-subtle font-medium">Failures</p>
-                        <p
-                          className={`mt-1 font-mono text-sm font-semibold ${
-                            b.consecutive_failures && b.consecutive_failures > 0 ? "text-danger" : "text-muted"
-                          }`}
-                        >
-                          {b.consecutive_failures ?? 0}
+                        <p className="text-subtle font-medium">Response Time</p>
+                        <p className="mt-0.5 font-semibold text-foreground">
+                          {b.last_latency_ms !== null && b.last_latency_ms !== undefined
+                            ? formatMs(b.last_latency_ms)
+                            : latency !== undefined && latency !== null
+                              ? formatMs(latency * 1000)
+                              : "—"}
                         </p>
                       </div>
                     </div>
                   </div>
 
-                  {/* Footer Timestamps */}
-                  <div className="mt-5 flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3 text-[11px] text-muted">
-                    <span className="flex items-center gap-1.5">
-                      <Clock className="size-3 text-subtle" />
-                      Checked {formatRelative(b.last_check_ms)}
-                    </span>
+                  {/* Clean status footer sentence */}
+                  <div className="mt-3 border-t border-border/70 pt-2.5 flex items-center justify-between text-[11px] text-muted">
                     <span>
-                      {b.last_change_ms ? `Last state change: ${formatRelative(b.last_change_ms)}` : "Stable"}
+                      {isHealthy ? "Passing regular health checks" : "Failed last probe"}
+                    </span>
+                    <span className="text-subtle">
+                      {b.last_check_ms ? `Checked ${formatRelative(b.last_check_ms)}` : "Active"}
                     </span>
                   </div>
                 </Card>
@@ -207,14 +199,33 @@ export function BackendsView() {
         )}
       </section>
 
-      {/* FAILURE & RECOVERY EVENTS */}
-      <section aria-label="Backend Health Transitions">
-        <EventList
-          title="Backend failure and recovery stream"
-          description="Real-time log of health probe transitions, circuit breaks, and auto-pause events."
-          filter={(e) => e.kind.startsWith("backend_") || e.kind.startsWith("admission_auto")}
-        />
-      </section>
+      {/* COLLAPSIBLE ADVANCED PROBING LOGS & EVENT STREAM */}
+      <div className="rounded-[var(--radius-card)] border border-border bg-surface/60 overflow-hidden">
+        <div className="flex items-center justify-between p-4">
+          <div className="flex items-center gap-2">
+            <Activity className="size-4 text-accent" />
+            <div>
+              <p className="text-sm font-semibold text-foreground">Backend Health Audit Log</p>
+              <p className="text-xs text-muted">Historical failovers, recoveries, and probe transitions</p>
+            </div>
+          </div>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => setShowAdvanced((prev) => !prev)}
+            className="text-xs gap-1.5"
+          >
+            <span>{showAdvanced ? "Hide Log" : "View Probe Log"}</span>
+            <ChevronDown className={`size-3.5 transition-transform duration-200 ${showAdvanced ? "rotate-180" : ""}`} />
+          </Button>
+        </div>
+
+        {showAdvanced && (
+          <div className="border-t border-border p-4 animate-in fade-in duration-200">
+            <EventList filter={(e) => e.kind.startsWith("backend_")} />
+          </div>
+        )}
+      </div>
     </>
   );
 }

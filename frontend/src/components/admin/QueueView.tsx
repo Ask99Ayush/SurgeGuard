@@ -86,8 +86,6 @@ export function QueueView() {
 
   const countFor = (key: VisitorFilter) =>
     !counts ? null : key === "all" ? counts.waiting + counts.admitted + counts.expired + counts.rejected : counts[key];
-  const showState = filter === "all";
-  const showPosition = filter === "all" || filter === "waiting";
 
   async function copyId(id: string) {
     try {
@@ -271,16 +269,13 @@ export function QueueView() {
           />
         ) : (
           <div className="relative overflow-x-auto">
-            <table className="w-full min-w-[700px] text-left text-sm">
+            <table className="w-full min-w-[600px] text-left text-sm">
               <thead className="text-xs text-subtle">
                 <tr className="border-b border-border">
-                  {showState ? <th scope="col" className="px-4 py-2.5 font-medium">State</th> : null}
-                  {showPosition ? <th scope="col" className="px-4 py-2.5 font-medium">Position</th> : null}
-                  <th scope="col" className="px-4 py-2.5 font-medium">Visitor ID</th>
-                  <th scope="col" className="px-4 py-2.5 font-medium">Sequence</th>
-                  <th scope="col" className="px-4 py-2.5 font-medium">Joined</th>
-                  <th scope="col" className="px-4 py-2.5 font-medium">{filter === "admitted" ? "Token Expires" : "Last Heartbeat"}</th>
-                  {filter !== "waiting" && filter !== "admitted" ? <th scope="col" className="px-4 py-2.5 font-medium">Reason</th> : null}
+                  <th scope="col" className="px-4 py-2.5 font-medium">Position</th>
+                  <th scope="col" className="px-4 py-2.5 font-medium">Visitor</th>
+                  <th scope="col" className="px-4 py-2.5 font-medium">Waiting time</th>
+                  <th scope="col" className="px-4 py-2.5 font-medium">Status</th>
                   <th scope="col" className="px-4 py-2.5 text-right font-medium">Actions</th>
                 </tr>
               </thead>
@@ -289,6 +284,13 @@ export function QueueView() {
                   const state = row.state as VisitorState;
                   const canReject = state === "waiting" || state === "admitted";
                   const isSelected = selectedVisitor?.visitor_id === row.visitor_id;
+
+                  const waitTimeDisplay =
+                    state === "waiting"
+                      ? row.joined_at_ms ? formatRelative(row.joined_at_ms) : "In queue"
+                      : state === "admitted"
+                        ? row.admitted_at_ms ? `Admitted ${formatRelative(row.admitted_at_ms)}` : "Admitted"
+                        : row.joined_at_ms ? formatRelative(row.joined_at_ms) : "—";
 
                   return (
                     <tr
@@ -299,17 +301,10 @@ export function QueueView() {
                         isSelected ? "bg-surface-elevated" : "hover:bg-surface-elevated/50",
                       )}
                     >
-                      {showState ? (
-                        <td className="px-4 py-2.5">
-                          <Badge tone={STATE_TONE[state] ?? "neutral"}>{row.state}</Badge>
-                        </td>
-                      ) : null}
-                      {showPosition ? (
-                        <td className="px-4 py-2.5 tabular-nums text-foreground font-semibold">
-                          {row.position ? `#${row.position}` : "—"}
-                        </td>
-                      ) : null}
-                      <td className="px-4 py-2.5 font-mono text-xs text-foreground">
+                      <td className="px-4 py-3 tabular-nums text-foreground font-semibold">
+                        {row.position ? `#${row.position}` : "—"}
+                      </td>
+                      <td className="px-4 py-3 font-mono text-xs text-foreground">
                         <span className="flex items-center gap-1.5" title={row.visitor_id}>
                           {shortId(row.visitor_id)}
                           <button
@@ -325,21 +320,13 @@ export function QueueView() {
                           </button>
                         </span>
                       </td>
-                      <td className="px-4 py-2.5 tabular-nums text-muted">{row.seq ?? "—"}</td>
-                      <td className="px-4 py-2.5 text-muted">{row.joined_at_ms ? formatRelative(row.joined_at_ms) : "—"}</td>
-                      <td className="px-4 py-2.5 tabular-nums text-muted">
-                        {filter === "admitted"
-                          ? row.token_expires_at_ms
-                            ? formatClock(row.token_expires_at_ms)
-                            : "—"
-                          : row.updated_at_ms
-                            ? formatRelative(row.updated_at_ms)
-                            : "—"}
+                      <td className="px-4 py-3 text-xs text-muted">
+                        {waitTimeDisplay}
                       </td>
-                      {filter !== "waiting" && filter !== "admitted" ? (
-                        <td className="px-4 py-2.5 text-muted max-w-xs truncate">{row.expired_reason ?? row.reject_reason ?? "—"}</td>
-                      ) : null}
-                      <td className="px-4 py-2.5 text-right" onClick={(e) => e.stopPropagation()}>
+                      <td className="px-4 py-3">
+                        <Badge tone={STATE_TONE[state] ?? "neutral"}>{row.state}</Badge>
+                      </td>
+                      <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-end gap-1">
                           <Button
                             size="sm"
@@ -360,7 +347,7 @@ export function QueueView() {
                               aria-label={`Reject visitor ${shortId(row.visitor_id)}`}
                             >
                               <Ban className="size-3.5 text-danger" aria-hidden />
-                              <span className="text-danger hidden sm:inline">Revoke</span>
+                              <span className="text-danger hidden sm:inline">Reject</span>
                             </Button>
                           ) : null}
                         </div>
@@ -371,6 +358,7 @@ export function QueueView() {
               </tbody>
             </table>
           </div>
+
         )}
 
         {/* Pagination Bar */}

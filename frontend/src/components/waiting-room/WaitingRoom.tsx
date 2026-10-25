@@ -125,9 +125,8 @@ export function WaitingRoom({
           <div className="rounded-[var(--radius-card)] border border-border bg-surface p-6 shadow-[var(--shadow-pop)] sm:p-8">
             <Body view={view} initialPosition={initialPosition.current} onRetry={retryNow} />
           </div>
-          <p className="mt-5 px-2 text-center text-[13px] leading-relaxed text-muted">
-            Keep this tab open — you&apos;ll be let in automatically. Refreshing won&apos;t lose your place: it&apos;s tied
-            to this browser, not your network.
+          <p className="mt-5 px-2 text-center text-sm leading-relaxed text-muted">
+            Keep this page open. You&apos;ll keep your place if you refresh.
           </p>
         </div>
       </main>
