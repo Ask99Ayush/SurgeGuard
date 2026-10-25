@@ -1,17 +1,17 @@
 {
   "uid": "surgeguard-failure",
-  "title": "SurgeGuard \u00b7 Reliability & Chaos",
-  "description": "Fail-closed behavior, service availability grid, and degradation signals.",
+  "title": "SurgeGuard \u00b7 4. Reliability & Recovery",
+  "description": "How does SurgeGuard handle failures, auto-pause, fail-closed, and recovery? Failure diagnostics.",
   "tags": [
     "surgeguard",
     "observability"
   ],
   "timezone": "browser",
   "schemaVersion": 39,
-  "version": 3,
-  "refresh": "10s",
+  "version": 4,
+  "refresh": "5s",
   "time": {
-    "from": "now-30m",
+    "from": "now-15m",
     "to": "now"
   },
   "editable": false,
@@ -22,7 +22,7 @@
       "title": "",
       "transparent": true,
       "options": {
-        "content": "## Reliability & Chaos \u2014 fail-closed behavior, service availability, degradation\n\n| [Edge & Traffic](/grafana/d/surgeguard-backends?{__url_time_range}) | [Queue & Tokens](/grafana/d/surgeguard-queue?{__url_time_range}) | [Infrastructure](/grafana/d/surgeguard-resources?{__url_time_range}) | [Latency & 5xx](/grafana/d/surgeguard-latency?{__url_time_range}) | [Reliability & Chaos](/grafana/d/surgeguard-failure?{__url_time_range}) | [Overview](/grafana/d/surgeguard-overview?{__url_time_range}) |",
+        "content": "## 4. Reliability & Recovery \u2014 Fail-closed behavior, auto-pause, worker leadership, alerts\n\n| [1. Overview](/grafana/d/surgeguard-overview?{__url_time_range}) | [2. Queue & Admission](/grafana/d/surgeguard-queue?{__url_time_range}) | [3. Backends & Traffic](/grafana/d/surgeguard-backends?{__url_time_range}) | [4. Reliability & Recovery](/grafana/d/surgeguard-failure?{__url_time_range}) | [5. Infrastructure](/grafana/d/surgeguard-resources?{__url_time_range}) | [6. Protected vs Unprotected](/grafana/d/surgeguard-comparison?{__url_time_range}) |",
         "mode": "markdown"
       },
       "id": 1,
@@ -35,8 +35,8 @@
     },
     {
       "type": "stat",
-      "title": "API",
-      "description": "SurgeGuard API scrape health.",
+      "title": "API status",
+      "description": "SurgeGuard API health.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -114,8 +114,8 @@
     },
     {
       "type": "stat",
-      "title": "Worker",
-      "description": "Admission worker scrape health.",
+      "title": "Worker status",
+      "description": "Admission worker health.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -193,7 +193,7 @@
     },
     {
       "type": "stat",
-      "title": "Redis",
+      "title": "Redis status",
       "description": "Redis exporter health.",
       "datasource": {
         "type": "prometheus",
@@ -272,85 +272,6 @@
     },
     {
       "type": "stat",
-      "title": "Nginx",
-      "description": "Nginx exporter health.",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "max(nginx_up{job=\"nginx\"}) or vector(0)",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          }
-        }
-      ],
-      "options": {
-        "colorMode": "background",
-        "graphMode": "none",
-        "textMode": "auto",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "noValue": "\u2014",
-          "color": {
-            "mode": "thresholds"
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "#ef4444",
-                "value": null
-              },
-              {
-                "color": "#10b981",
-                "value": 1
-              }
-            ]
-          },
-          "mappings": [
-            {
-              "type": "value",
-              "options": {
-                "0": {
-                  "text": "DOWN",
-                  "color": "#ef4444",
-                  "index": 0
-                },
-                "1": {
-                  "text": "UP",
-                  "color": "#10b981",
-                  "index": 1
-                }
-              }
-            }
-          ]
-        },
-        "overrides": []
-      },
-      "id": 5,
-      "gridPos": {
-        "x": 12,
-        "y": 2,
-        "w": 4,
-        "h": 5
-      }
-    },
-    {
-      "type": "stat",
       "title": "Healthy backends",
       "description": "Origin backends passing active health probes.",
       "datasource": {
@@ -409,9 +330,9 @@
         },
         "overrides": []
       },
-      "id": 6,
+      "id": 5,
       "gridPos": {
-        "x": 16,
+        "x": 12,
         "y": 2,
         "w": 4,
         "h": 5
@@ -420,7 +341,7 @@
     {
       "type": "stat",
       "title": "Worker leader",
-      "description": "1 = A worker holds the leader lock. 0 = No admissions.",
+      "description": "1 = Worker holds the leader lock. 0 = Admissions frozen.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -473,6 +394,70 @@
         },
         "overrides": []
       },
+      "id": 6,
+      "gridPos": {
+        "x": 16,
+        "y": 2,
+        "w": 4,
+        "h": 5
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Admission paused",
+      "description": "1 = Admission paused (manual operator toggle or auto-pause).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max(surgeguard_admission_paused) or vector(0)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "textMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": null,
+          "noValue": "0",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#10b981",
+                "value": null
+              },
+              {
+                "color": "#f59e0b",
+                "value": 1
+              }
+            ]
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
       "id": 7,
       "gridPos": {
         "x": 20,
@@ -483,7 +468,7 @@
     },
     {
       "type": "row",
-      "title": "Service availability",
+      "title": "Service availability & recovery timing",
       "collapsed": false,
       "id": 8,
       "gridPos": {
@@ -495,8 +480,8 @@
     },
     {
       "type": "timeseries",
-      "title": "Service availability (1 = up, 0 = down)",
-      "description": "Binary up/down signal for every cluster service.",
+      "title": "Cluster service availability (1 = UP, 0 = DOWN)",
+      "description": "Availability signal across all cluster components.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -505,7 +490,7 @@
         {
           "refId": "A",
           "expr": "max(up{job=\"surgeguard-api\"}) or vector(0)",
-          "legendFormat": "SurgeGuard API",
+          "legendFormat": "API",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -514,7 +499,7 @@
         {
           "refId": "B",
           "expr": "max(up{job=\"admission-worker\"}) or vector(0)",
-          "legendFormat": "Admission worker",
+          "legendFormat": "Worker",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -523,7 +508,7 @@
         {
           "refId": "C",
           "expr": "max(redis_up{job=\"redis\"}) or vector(0)",
-          "legendFormat": "Redis (exporter)",
+          "legendFormat": "Redis exporter",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -532,7 +517,7 @@
         {
           "refId": "D",
           "expr": "max(surgeguard_redis_up{job=\"admission-worker\"}) or vector(0)",
-          "legendFormat": "Redis (worker ping)",
+          "legendFormat": "Worker Redis ping",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -551,7 +536,7 @@
       "fieldConfig": {
         "defaults": {
           "unit": "short",
-          "noValue": "\u2014",
+          "noValue": "No traffic yet",
           "color": {
             "mode": "palette-classic"
           },
@@ -605,7 +590,7 @@
     {
       "type": "timeseries",
       "title": "Configured vs healthy backends",
-      "description": "Live vs configured backend count \u2014 gap indicates backend failures.",
+      "description": "Live healthy nodes vs configured pool \u2014 drops illustrate backend failure and recovery timing.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -614,7 +599,7 @@
         {
           "refId": "A",
           "expr": "max(surgeguard_backends_healthy) or vector(0)",
-          "legendFormat": "Healthy",
+          "legendFormat": "Healthy backends",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -623,7 +608,7 @@
         {
           "refId": "B",
           "expr": "max(surgeguard_backends_total) or vector(0)",
-          "legendFormat": "Total",
+          "legendFormat": "Configured total",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -633,7 +618,7 @@
       "fieldConfig": {
         "defaults": {
           "unit": "short",
-          "noValue": "\u2014",
+          "noValue": "No traffic yet",
           "color": {
             "mode": "palette-classic"
           },
@@ -666,7 +651,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "Healthy"
+              "options": "Healthy backends"
             },
             "properties": [
               {
@@ -685,7 +670,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "Total"
+              "options": "Configured total"
             },
             "properties": [
               {
@@ -734,7 +719,7 @@
     },
     {
       "type": "row",
-      "title": "Fail-closed and degradation",
+      "title": "Fail-closed & auto-pause mechanisms",
       "collapsed": false,
       "id": 11,
       "gridPos": {
@@ -747,7 +732,7 @@
     {
       "type": "timeseries",
       "title": "Fail-closed auth decisions",
-      "description": "Requests refused by Nginx because the auth endpoint was unreachable (fail-closed security).",
+      "description": "Requests refused by Nginx because auth dependency was unavailable.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -756,7 +741,7 @@
         {
           "refId": "A",
           "expr": "sum(rate(surgeguard_auth_fail_closed_total[$rate_interval])) or vector(0)",
-          "legendFormat": "fail-closed/s",
+          "legendFormat": "Fail-closed / s",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -766,7 +751,7 @@
       "fieldConfig": {
         "defaults": {
           "unit": "reqps",
-          "noValue": "\u2014",
+          "noValue": "No traffic yet",
           "color": {
             "mode": "palette-classic"
           },
@@ -799,7 +784,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "fail-closed/s"
+              "options": "Fail-closed / s"
             },
             "properties": [
               {
@@ -839,7 +824,7 @@
     {
       "type": "timeseries",
       "title": "Admission paused (auto & manual)",
-      "description": "1 when admission is paused. Kind=auto means all backends were down.",
+      "description": "1 when admission is paused. Kind=auto indicates all backends were down.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -858,7 +843,7 @@
       "fieldConfig": {
         "defaults": {
           "unit": "short",
-          "noValue": "\u2014",
+          "noValue": "No traffic yet",
           "color": {
             "mode": "palette-classic"
           },
@@ -912,7 +897,7 @@
     {
       "type": "timeseries",
       "title": "Admission loop failures by reason",
-      "description": "Exceptions or timeouts inside the worker admission loop.",
+      "description": "Exceptions or timeouts inside worker loop.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -931,7 +916,7 @@
       "fieldConfig": {
         "defaults": {
           "unit": "reqps",
-          "noValue": "\u2014",
+          "noValue": "No traffic yet",
           "color": {
             "mode": "palette-classic"
           },
@@ -982,113 +967,9 @@
       }
     },
     {
-      "type": "timeseries",
-      "title": "Origin 5xx error ratio",
-      "description": "Fraction of admitted origin requests returning server errors.",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sum(rate(demo_requests_total{status=~\"5..\"}[$rate_interval])) / clamp_min(sum(rate(demo_requests_total[$rate_interval])), 0.001) or vector(0)",
-          "legendFormat": "5xx ratio",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          }
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percentunit",
-          "noValue": "\u2014",
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "lineWidth": 2,
-            "fillOpacity": 12,
-            "gradientMode": "opacity",
-            "showPoints": "never",
-            "pointSize": 4,
-            "spanNulls": false,
-            "lineInterpolation": "smooth",
-            "axisBorderShow": false,
-            "axisGridShow": true,
-            "stacking": {
-              "mode": "none"
-            }
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "#10b981",
-                "value": null
-              }
-            ]
-          },
-          "min": 0
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "5xx ratio"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "#ef4444"
-                }
-              },
-              {
-                "id": "custom.fillOpacity",
-                "value": 12
-              }
-            ]
-          }
-        ]
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "calcs": []
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "id": 15,
-      "gridPos": {
-        "x": 12,
-        "y": 25,
-        "w": 12,
-        "h": 8
-      }
-    },
-    {
-      "type": "row",
-      "title": "Active alerts",
-      "collapsed": true,
-      "id": 16,
-      "gridPos": {
-        "x": 0,
-        "y": 33,
-        "w": 24,
-        "h": 1
-      }
-    },
-    {
       "type": "alertlist",
-      "title": "Firing & pending alert rules",
-      "description": "Prometheus alert rules currently in firing or pending state.",
+      "title": "Active alert rules",
+      "description": "Prometheus alert rules currently firing or pending.",
       "options": {
         "alertListOptions": {
           "showOptions": "current"
@@ -1115,11 +996,11 @@
           }
         }
       ],
-      "id": 17,
+      "id": 15,
       "gridPos": {
-        "x": 0,
-        "y": 34,
-        "w": 24,
+        "x": 12,
+        "y": 25,
+        "w": 12,
         "h": 8
       }
     }

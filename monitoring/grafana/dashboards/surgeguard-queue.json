@@ -1,17 +1,17 @@
 {
   "uid": "surgeguard-queue",
-  "title": "SurgeGuard \u00b7 Queue & Tokens",
-  "description": "Queue depth, admission velocity, wait times, and token lifecycle.",
+  "title": "SurgeGuard \u00b7 2. Queue & Admission",
+  "description": "How deep is the queue, and how smoothly are visitors being admitted? Queue mechanics & tokens.",
   "tags": [
     "surgeguard",
     "observability"
   ],
   "timezone": "browser",
   "schemaVersion": 39,
-  "version": 3,
-  "refresh": "10s",
+  "version": 4,
+  "refresh": "5s",
   "time": {
-    "from": "now-30m",
+    "from": "now-15m",
     "to": "now"
   },
   "editable": false,
@@ -22,7 +22,7 @@
       "title": "",
       "transparent": true,
       "options": {
-        "content": "## Queue & Tokens \u2014 queue depth, admission velocity, token lifecycle\n\n| [Edge & Traffic](/grafana/d/surgeguard-backends?{__url_time_range}) | [Queue & Tokens](/grafana/d/surgeguard-queue?{__url_time_range}) | [Infrastructure](/grafana/d/surgeguard-resources?{__url_time_range}) | [Latency & 5xx](/grafana/d/surgeguard-latency?{__url_time_range}) | [Reliability & Chaos](/grafana/d/surgeguard-failure?{__url_time_range}) | [Overview](/grafana/d/surgeguard-overview?{__url_time_range}) |",
+        "content": "## 2. Queue & Admission \u2014 Queue length, admission velocity, wait times, token lifecycle\n\n| [1. Overview](/grafana/d/surgeguard-overview?{__url_time_range}) | [2. Queue & Admission](/grafana/d/surgeguard-queue?{__url_time_range}) | [3. Backends & Traffic](/grafana/d/surgeguard-backends?{__url_time_range}) | [4. Reliability & Recovery](/grafana/d/surgeguard-failure?{__url_time_range}) | [5. Infrastructure](/grafana/d/surgeguard-resources?{__url_time_range}) | [6. Protected vs Unprotected](/grafana/d/surgeguard-comparison?{__url_time_range}) |",
         "mode": "markdown"
       },
       "id": 1,
@@ -35,8 +35,8 @@
     },
     {
       "type": "stat",
-      "title": "People waiting",
-      "description": "Visitors in the FIFO queue waiting for a token.",
+      "title": "Waiting now",
+      "description": "Visitors currently in the FIFO waiting room.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -104,7 +104,7 @@
     {
       "type": "stat",
       "title": "Admitted & active",
-      "description": "Visitors with a valid token currently browsing.",
+      "description": "Visitors currently holding a valid admission token.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -164,7 +164,7 @@
     {
       "type": "stat",
       "title": "Admission rate",
-      "description": "Tokens issued per second (measured).",
+      "description": "Tokens minted per second (measured).",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -224,7 +224,7 @@
     {
       "type": "stat",
       "title": "Configured rate",
-      "description": "Admission rate as configured in SurgeGuard settings.",
+      "description": "Configured admission rate setting.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -283,7 +283,7 @@
     },
     {
       "type": "row",
-      "title": "Queue depth and admission velocity",
+      "title": "Queue length & admission rate",
       "collapsed": false,
       "id": 6,
       "gridPos": {
@@ -295,8 +295,8 @@
     },
     {
       "type": "timeseries",
-      "title": "People waiting",
-      "description": "Queue depth over time.",
+      "title": "People in line",
+      "description": "Queue length over time.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -315,7 +315,7 @@
       "fieldConfig": {
         "defaults": {
           "unit": "short",
-          "noValue": "\u2014",
+          "noValue": "No traffic yet",
           "color": {
             "mode": "palette-classic"
           },
@@ -388,8 +388,8 @@
     },
     {
       "type": "timeseries",
-      "title": "Admission rate \u2014 measured vs target",
-      "description": "Measured rate (solid) vs policy targets (dashed).",
+      "title": "Admission rate \u2014 measured vs configured vs effective",
+      "description": "Measured admission rate vs configured and health-adjusted effective targets.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -426,7 +426,7 @@
       "fieldConfig": {
         "defaults": {
           "unit": "reqps",
-          "noValue": "\u2014",
+          "noValue": "No traffic yet",
           "color": {
             "mode": "palette-classic"
           },
@@ -556,7 +556,7 @@
     },
     {
       "type": "row",
-      "title": "Wait time and join outcomes",
+      "title": "Wait times & join outcomes",
       "collapsed": false,
       "id": 9,
       "gridPos": {
@@ -568,8 +568,8 @@
     },
     {
       "type": "timeseries",
-      "title": "Queue wait time",
-      "description": "Time from entering the queue until receiving a token.",
+      "title": "Queue wait time (p50 / p95)",
+      "description": "Time from joining the queue until receiving an admission token.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -587,7 +587,7 @@
         {
           "refId": "B",
           "expr": "histogram_quantile(0.95, sum by (le) (rate(surgeguard_queue_wait_seconds_bucket[5m])))",
-          "legendFormat": "p95",
+          "legendFormat": "p95 wait",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -597,7 +597,7 @@
       "fieldConfig": {
         "defaults": {
           "unit": "s",
-          "noValue": "Not enough data yet",
+          "noValue": "No traffic yet",
           "color": {
             "mode": "palette-classic"
           },
@@ -649,7 +649,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "p95"
+              "options": "p95 wait"
             },
             "properties": [
               {
@@ -689,7 +689,7 @@
     {
       "type": "timeseries",
       "title": "Queue joins by mode",
-      "description": "Incoming visitor arrivals categorised by queue mode (queued vs direct).",
+      "description": "Arrivals by admission path (direct vs queued).",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -708,7 +708,7 @@
       "fieldConfig": {
         "defaults": {
           "unit": "reqps",
-          "noValue": "\u2014",
+          "noValue": "No traffic yet",
           "color": {
             "mode": "palette-classic"
           },
@@ -760,8 +760,8 @@
     },
     {
       "type": "row",
-      "title": "Token lifecycle",
-      "collapsed": true,
+      "title": "Token lifecycle & security",
+      "collapsed": false,
       "id": 12,
       "gridPos": {
         "x": 0,
@@ -801,7 +801,7 @@
       "fieldConfig": {
         "defaults": {
           "unit": "reqps",
-          "noValue": "\u2014",
+          "noValue": "No traffic yet",
           "color": {
             "mode": "palette-classic"
           },
@@ -873,7 +873,7 @@
       "fieldConfig": {
         "defaults": {
           "unit": "reqps",
-          "noValue": "\u2014",
+          "noValue": "No traffic yet",
           "color": {
             "mode": "palette-classic"
           },
@@ -926,7 +926,7 @@
     {
       "type": "timeseries",
       "title": "Visitors expired (heartbeat timeout)",
-      "description": "Visitors purged from queue because their heartbeat polling stopped.",
+      "description": "Visitors purged from queue after abandoned polling.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -945,7 +945,7 @@
       "fieldConfig": {
         "defaults": {
           "unit": "reqps",
-          "noValue": "\u2014",
+          "noValue": "No traffic yet",
           "color": {
             "mode": "palette-classic"
           },
@@ -998,7 +998,7 @@
     {
       "type": "timeseries",
       "title": "Rate-limited join attempts",
-      "description": "Join requests throttled by the application-level rate limiter.",
+      "description": "Join attempts throttled by the application rate limiter.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -1017,7 +1017,7 @@
       "fieldConfig": {
         "defaults": {
           "unit": "reqps",
-          "noValue": "\u2014",
+          "noValue": "No traffic yet",
           "color": {
             "mode": "palette-classic"
           },

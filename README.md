@@ -94,7 +94,7 @@ SurgeGuard addresses this problem by controlling admission to the origin rather 
 | Backend Health Checks | Active checks with hysteresis. Admission scales with the healthy fraction and auto-pauses when no backend is healthy. |
 | Wait Estimates | Approximate wait computed only from measured admission throughput; shows "estimate unavailable" when there isn't enough data. |
 | Operator Console | Login-protected dashboard, queue table (filter, search, pagination, reject), backends, monitoring, settings, pause/resume with confirmation, and a projector-friendly Live view. |
-| Monitoring and Alerts | Prometheus metrics from every component, 5 provisioned Grafana dashboards, and 9 alert rules. |
+| Monitoring and Alerts | Prometheus metrics from every component, 6 provisioned Grafana dashboards, and 9 alert rules. |
 | Load Testing | k6 scenarios comparing unprotected and protected runs with an identical profile, plus backend-failure and fairness runs. |
 | Cloud Deployment | Terraform for an optional AWS layout (VPC, ALB, Auto Scaling host, SSM config), validated offline and never applied from this repository. |
 
@@ -535,7 +535,13 @@ Setup details (hardware, VUs, duration, versions) are in [loadtest/README.md](lo
 
 ## Monitoring and Observability
 
-Prometheus and Grafana provide visibility into both traffic-management behaviour and backend health. Grafana provisions five dashboards: System health, Queue and admission, Backend performance, Latency and errors, and Failure and recovery.
+Prometheus and Grafana provide visibility into both traffic-management behaviour and backend health. Grafana provisions six dashboards:
+- `surgeguard-overview` — Overview & Health
+- `surgeguard-backends` — Edge & Traffic (per-origin load, connections, bypass)
+- `surgeguard-queue` — Queue & Tokens (FIFO depth, wait times, token lifecycle)
+- `surgeguard-resources` — Infrastructure (Redis memory, worker loop, CPU/RSS)
+- `surgeguard-latency` — Latency & 5xx (percentile curves, status distribution, tail latency)
+- `surgeguard-failure` — Reliability & Chaos (fail-closed, auto-pause, recovery timing)
 
 Collected metrics include:
 

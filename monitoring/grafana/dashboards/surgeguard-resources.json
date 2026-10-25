@@ -1,17 +1,17 @@
 {
   "uid": "surgeguard-resources",
-  "title": "SurgeGuard \u00b7 Infrastructure",
-  "description": "Redis memory and throughput, worker heartbeat, and backend probe latency.",
+  "title": "SurgeGuard \u00b7 5. Infrastructure",
+  "description": "Redis memory, worker loop timing, and resource utilization across dependencies.",
   "tags": [
     "surgeguard",
     "observability"
   ],
   "timezone": "browser",
   "schemaVersion": 39,
-  "version": 3,
-  "refresh": "10s",
+  "version": 4,
+  "refresh": "5s",
   "time": {
-    "from": "now-30m",
+    "from": "now-15m",
     "to": "now"
   },
   "editable": false,
@@ -22,7 +22,7 @@
       "title": "",
       "transparent": true,
       "options": {
-        "content": "## Infrastructure \u2014 Redis, admission worker, and platform dependencies\n\n| [Edge & Traffic](/grafana/d/surgeguard-backends?{__url_time_range}) | [Queue & Tokens](/grafana/d/surgeguard-queue?{__url_time_range}) | [Infrastructure](/grafana/d/surgeguard-resources?{__url_time_range}) | [Latency & 5xx](/grafana/d/surgeguard-latency?{__url_time_range}) | [Reliability & Chaos](/grafana/d/surgeguard-failure?{__url_time_range}) | [Overview](/grafana/d/surgeguard-overview?{__url_time_range}) |",
+        "content": "## 5. Infrastructure \u2014 Redis memory & latency, worker loop timing, CPU & RSS\n\n| [1. Overview](/grafana/d/surgeguard-overview?{__url_time_range}) | [2. Queue & Admission](/grafana/d/surgeguard-queue?{__url_time_range}) | [3. Backends & Traffic](/grafana/d/surgeguard-backends?{__url_time_range}) | [4. Reliability & Recovery](/grafana/d/surgeguard-failure?{__url_time_range}) | [5. Infrastructure](/grafana/d/surgeguard-resources?{__url_time_range}) | [6. Protected vs Unprotected](/grafana/d/surgeguard-comparison?{__url_time_range}) |",
         "mode": "markdown"
       },
       "id": 1,
@@ -36,7 +36,7 @@
     {
       "type": "stat",
       "title": "Redis status",
-      "description": "1 = Redis is up and the exporter is reachable.",
+      "description": "1 = Redis is reachable.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -100,7 +100,7 @@
     {
       "type": "stat",
       "title": "Redis memory",
-      "description": "Memory allocated by Redis for data structures.",
+      "description": "Memory allocated by Redis.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -160,7 +160,7 @@
     {
       "type": "stat",
       "title": "Worker leader",
-      "description": "1 = A worker holds the distributed leader lock.",
+      "description": "1 = Worker holds distributed leader lock.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -223,8 +223,8 @@
     },
     {
       "type": "stat",
-      "title": "Seconds since tick",
-      "description": "Age of last worker tick. Red \u226515 s = worker may be stuck.",
+      "title": "Worker tick age",
+      "description": "Seconds since last worker tick. Red \u226515s means worker stalled.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -291,7 +291,7 @@
     },
     {
       "type": "row",
-      "title": "Redis",
+      "title": "Redis state store",
       "collapsed": false,
       "id": 6,
       "gridPos": {
@@ -304,7 +304,7 @@
     {
       "type": "timeseries",
       "title": "Redis memory vs ceiling",
-      "description": "Redis memory usage vs maxmemory ceiling.",
+      "description": "Redis memory usage vs maxmemory configuration.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -322,7 +322,7 @@
         {
           "refId": "B",
           "expr": "max(redis_memory_max_bytes{job=\"redis\"}) or vector(0)",
-          "legendFormat": "Max (maxmemory)",
+          "legendFormat": "Max ceiling",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -332,7 +332,7 @@
       "fieldConfig": {
         "defaults": {
           "unit": "bytes",
-          "noValue": "\u2014",
+          "noValue": "No traffic yet",
           "color": {
             "mode": "palette-classic"
           },
@@ -384,7 +384,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "Max (maxmemory)"
+              "options": "Max ceiling"
             },
             "properties": [
               {
@@ -433,8 +433,128 @@
     },
     {
       "type": "timeseries",
+      "title": "Redis ping latency (p50 / p95)",
+      "description": "Round-trip latency from worker to Redis in milliseconds.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.50, sum by (le) (rate(surgeguard_redis_ping_seconds_bucket[$rate_interval]))) * 1000",
+          "legendFormat": "p50 ms",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        },
+        {
+          "refId": "B",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(surgeguard_redis_ping_seconds_bucket[$rate_interval]))) * 1000",
+          "legendFormat": "p95 ms",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "noValue": "No traffic yet",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "gradientMode": "opacity",
+            "showPoints": "never",
+            "pointSize": 4,
+            "spanNulls": false,
+            "lineInterpolation": "smooth",
+            "axisBorderShow": false,
+            "axisGridShow": true,
+            "stacking": {
+              "mode": "none"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#10b981",
+                "value": null
+              }
+            ]
+          },
+          "min": 0
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "p50 ms"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#10b981"
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 8
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "p95 ms"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#f59e0b"
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 4
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 8,
+      "gridPos": {
+        "x": 12,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "type": "timeseries",
       "title": "Redis command throughput",
-      "description": "Redis operations per second (all command types).",
+      "description": "Redis operations per second.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -453,7 +573,7 @@
       "fieldConfig": {
         "defaults": {
           "unit": "short",
-          "noValue": "\u2014",
+          "noValue": "No traffic yet",
           "color": {
             "mode": "palette-classic"
           },
@@ -498,127 +618,7 @@
               },
               {
                 "id": "custom.fillOpacity",
-                "value": 12
-              }
-            ]
-          }
-        ]
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "calcs": []
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "id": 8,
-      "gridPos": {
-        "x": 12,
-        "y": 8,
-        "w": 12,
-        "h": 8
-      }
-    },
-    {
-      "type": "timeseries",
-      "title": "Redis ping latency (p50 / p95)",
-      "description": "Round-trip latency from admission worker to Redis.",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "histogram_quantile(0.50, sum by (le) (rate(surgeguard_redis_ping_seconds_bucket[$rate_interval])))",
-          "legendFormat": "p50",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          }
-        },
-        {
-          "refId": "B",
-          "expr": "histogram_quantile(0.95, sum by (le) (rate(surgeguard_redis_ping_seconds_bucket[$rate_interval])))",
-          "legendFormat": "p95",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          }
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "ms",
-          "noValue": "No data",
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "lineWidth": 2,
-            "fillOpacity": 12,
-            "gradientMode": "opacity",
-            "showPoints": "never",
-            "pointSize": 4,
-            "spanNulls": false,
-            "lineInterpolation": "smooth",
-            "axisBorderShow": false,
-            "axisGridShow": true,
-            "stacking": {
-              "mode": "none"
-            }
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "#10b981",
-                "value": null
-              }
-            ]
-          },
-          "min": 0
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "p50"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "#10b981"
-                }
-              },
-              {
-                "id": "custom.fillOpacity",
-                "value": 8
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "p95"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "#f59e0b"
-                }
-              },
-              {
-                "id": "custom.fillOpacity",
-                "value": 4
+                "value": 10
               }
             ]
           }
@@ -646,7 +646,7 @@
     {
       "type": "timeseries",
       "title": "Redis connected clients",
-      "description": "Open client connections to Redis.",
+      "description": "Client connections open to Redis.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -665,7 +665,7 @@
       "fieldConfig": {
         "defaults": {
           "unit": "short",
-          "noValue": "\u2014",
+          "noValue": "No traffic yet",
           "color": {
             "mode": "palette-classic"
           },
@@ -737,7 +737,7 @@
     },
     {
       "type": "row",
-      "title": "Admission worker",
+      "title": "Worker loop & process resources",
       "collapsed": false,
       "id": 11,
       "gridPos": {
@@ -750,7 +750,7 @@
     {
       "type": "timeseries",
       "title": "Worker tick rate",
-      "description": "Worker loop iterations per second. Should be ~1/s at steady state.",
+      "description": "Worker loop iterations per second (~1/s at steady state).",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -769,7 +769,7 @@
       "fieldConfig": {
         "defaults": {
           "unit": "short",
-          "noValue": "\u2014",
+          "noValue": "No traffic yet",
           "color": {
             "mode": "palette-classic"
           },
@@ -842,7 +842,7 @@
     {
       "type": "timeseries",
       "title": "Seconds since last tick",
-      "description": "Increases if the worker loop is stuck or the worker process is down.",
+      "description": "Age of last completed tick. Increases if worker process hangs.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -861,7 +861,7 @@
       "fieldConfig": {
         "defaults": {
           "unit": "s",
-          "noValue": "\u2014",
+          "noValue": "No traffic yet",
           "color": {
             "mode": "palette-classic"
           },
@@ -940,8 +940,8 @@
     },
     {
       "type": "timeseries",
-      "title": "Backend probe latency",
-      "description": "Health probe round-trip latency per configured origin.",
+      "title": "Process CPU utilization",
+      "description": "CPU seconds consumed per process group.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -949,8 +949,8 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "max by (backend) (surgeguard_backend_check_latency_seconds)",
-          "legendFormat": "{{backend}}",
+          "expr": "sum by (job) (rate(process_cpu_seconds_total[$rate_interval])) or vector(0)",
+          "legendFormat": "CPU: {{job}}",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -959,8 +959,8 @@
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "s",
-          "noValue": "No data",
+          "unit": "percentunit",
+          "noValue": "No traffic yet",
           "color": {
             "mode": "palette-classic"
           },
@@ -1012,8 +1012,8 @@
     },
     {
       "type": "timeseries",
-      "title": "Healthy vs total backends",
-      "description": "Count of healthy backends vs total configured backends.",
+      "title": "Process Resident Memory (RSS)",
+      "description": "Resident set memory consumed per process job.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -1021,17 +1021,8 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "max(surgeguard_backends_healthy) or vector(0)",
-          "legendFormat": "Healthy",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          }
-        },
-        {
-          "refId": "B",
-          "expr": "max(surgeguard_backends_total) or vector(0)",
-          "legendFormat": "Total",
+          "expr": "sum by (job) (process_resident_memory_bytes) or vector(0)",
+          "legendFormat": "RSS: {{job}}",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -1040,8 +1031,8 @@
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "short",
-          "noValue": "\u2014",
+          "unit": "bytes",
+          "noValue": "No traffic yet",
           "color": {
             "mode": "palette-classic"
           },
@@ -1070,56 +1061,7 @@
           },
           "min": 0
         },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Healthy"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "#10b981"
-                }
-              },
-              {
-                "id": "custom.fillOpacity",
-                "value": 10
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Total"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "#64748b"
-                }
-              },
-              {
-                "id": "custom.fillOpacity",
-                "value": 0
-              },
-              {
-                "id": "custom.lineStyle",
-                "value": {
-                  "fill": "dash",
-                  "dash": [
-                    8,
-                    4
-                  ]
-                }
-              }
-            ]
-          }
-        ]
+        "overrides": []
       },
       "options": {
         "legend": {
