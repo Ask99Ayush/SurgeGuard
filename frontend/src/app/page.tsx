@@ -1,13 +1,12 @@
 import Image from "next/image";
-import { ArrowRight, LayoutDashboard } from "lucide-react";
+import { ArrowRight, LayoutDashboard, ShieldCheck, Users, Gauge } from "lucide-react";
 import { CloudClubShowcase } from "@/components/landing/CloudClubShowcase";
 import { DemoComparison } from "@/components/landing/DemoComparison";
-import { KeyGrid } from "@/components/landing/KeyGrid";
-import { QueueFlow } from "@/components/landing/QueueFlow";
-import { Architecture, Features, Footer, HowItWorks, Stack } from "@/components/landing/Sections";
+import { Architecture, Features, Footer, Stack } from "@/components/landing/Sections";
 import { SiteNav } from "@/components/landing/SiteNav";
 import { SurgeSimulator } from "@/components/landing/SurgeSimulator";
-import { ButtonLink, Kbd } from "@/components/ui/primitives";
+import { LandingDeepDive } from "@/components/landing/LandingDeepDive";
+import { ButtonLink, Card } from "@/components/ui/primitives";
 
 export const dynamic = "force-dynamic";
 
@@ -18,100 +17,134 @@ export default function LandingPage() {
     <>
       <SiteNav />
       <main id="main">
-        {/* Hero Section */}
-        <section className="relative overflow-hidden px-4 pb-16 pt-12 sm:px-6 sm:pt-16 lg:pb-24 lg:pt-20">
+        {/* Calm, Focused Hero */}
+        <section className="relative overflow-hidden px-4 pb-14 pt-12 sm:px-6 sm:pt-16 lg:pb-20 lg:pt-20">
           <div aria-hidden className="hero-glow pointer-events-none absolute inset-0" />
-          <div className="relative mx-auto grid max-w-6xl items-center gap-12 lg:grid-cols-[1.05fr_1fr] lg:gap-16">
-            <div>
-              <div className="inline-flex items-center gap-2 rounded-full border border-border bg-surface px-3 py-1.5 text-[12px] text-muted shadow-sm">
-                <Image
-                  src="/images/aws-cloud-club-kiet.jpg"
-                  alt="AWS Cloud Club KIET"
-                  className="size-4 rounded-full object-cover ring-1 ring-border"
-                  width={16}
-                  height={16}
-                />
-                <span className="font-medium text-foreground">AWS Cloud Club KIET Initiative</span>
-                <span className="h-3 w-px bg-border" aria-hidden />
-                <span className="flex items-center gap-1.5 font-medium text-accent">
-                  <span aria-hidden className="size-1.5 rounded-full bg-accent animate-pulse" />
-                  Virtual Waiting Room
-                </span>
-              </div>
-
-              <h1 className="mt-6 text-[40px] font-semibold leading-[1.05] tracking-[-0.04em] text-balance sm:text-[52px] xl:text-[56px]">
-                Survive the surge.
-                <span className="block text-muted">Keep every user in line.</span>
-              </h1>
-
-              <p className="mt-6 max-w-lg text-[17px] leading-relaxed text-muted">
-                When results go live or registrations open, SurgeGuard queues the overflow and admits visitors
-                first-come, first-served — at the exact pace your servers can actually handle.
-              </p>
-
-              <div className="mt-9 flex flex-wrap gap-3">
-                <ButtonLink href="/login?next=/dashboard" variant="primary" size="lg">
-                  <LayoutDashboard className="size-[18px]" aria-hidden />
-                  Launch Dashboard
-                </ButtonLink>
-                <ButtonLink href="#simulator" variant="secondary" size="lg">
-                  <span>Interactive Simulator</span>
-                  <ArrowRight className="size-4" aria-hidden />
-                </ButtonLink>
-              </div>
-
-              <div className="mt-6 flex flex-wrap items-center gap-4 text-[13px] text-muted">
-                {demoUrl ? (
-                  <p className="flex items-center gap-2">
-                    <Kbd>↵</Kbd>
-                    <a
-                      href={demoUrl}
-                      className="underline decoration-border-strong underline-offset-4 transition-colors hover:text-foreground"
-                    >
-                      Open the protected demo site
-                    </a>
-                  </p>
-                ) : (
-                  <p className="flex items-center gap-2">
-                    <Kbd>↵</Kbd>
-                    <a
-                      href="#comparison"
-                      className="underline decoration-border-strong underline-offset-4 transition-colors hover:text-foreground"
-                    >
-                      Compare protected vs unprotected routes
-                    </a>
-                  </p>
-                )}
-              </div>
+          <div className="relative mx-auto max-w-4xl text-center">
+            <div className="inline-flex items-center gap-2 rounded-full border border-border bg-surface px-3 py-1.5 text-xs text-muted shadow-sm">
+              <Image
+                src="/images/aws-cloud-club-kiet.jpg"
+                alt="AWS Cloud Club KIET"
+                className="size-4 rounded-full object-cover ring-1 ring-border"
+                width={16}
+                height={16}
+              />
+              <span className="font-medium text-foreground">AWS Cloud Club KIET</span>
+              <span className="h-3 w-px bg-border" aria-hidden />
+              <span className="flex items-center gap-1.5 font-medium text-accent">
+                <span aria-hidden className="size-1.5 rounded-full bg-accent animate-pulse" />
+                Virtual Waiting Room
+              </span>
             </div>
 
-            <div className="mx-auto flex w-full max-w-[560px] flex-col gap-4 lg:mr-0">
-              <KeyGrid />
-              <QueueFlow />
+            <h1 className="mt-6 text-4xl font-semibold leading-[1.08] tracking-[-0.04em] text-foreground sm:text-5xl lg:text-6xl text-balance">
+              Survive the surge.
+              <span className="block text-muted">Keep every user in line.</span>
+            </h1>
+
+            <p className="mx-auto mt-5 max-w-2xl text-base sm:text-lg leading-relaxed text-muted text-balance">
+              SurgeGuard holds traffic spikes in a fair virtual waiting room, admitting visitors first-come, first-served
+              at the exact pace your origin servers can sustain.
+            </p>
+
+            <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+              <ButtonLink href="/login?next=/dashboard" variant="primary" size="lg">
+                <LayoutDashboard className="size-4" aria-hidden />
+                Open Console
+              </ButtonLink>
+              {demoUrl ? (
+                <ButtonLink href={demoUrl} external variant="secondary" size="lg">
+                  <span>View Live Demo</span>
+                  <ArrowRight className="size-4" aria-hidden />
+                </ButtonLink>
+              ) : (
+                <ButtonLink href="/waiting-room" variant="secondary" size="lg">
+                  <span>Test Waiting Room</span>
+                  <ArrowRight className="size-4" aria-hidden />
+                </ButtonLink>
+              )}
+            </div>
+
+            <p className="mt-4 text-xs text-subtle">
+              Self-hosted &middot; Nginx edge verification &middot; Redis state store &middot; Zero code changes required on origin
+            </p>
+          </div>
+        </section>
+
+        {/* 3-Step "How It Works" Section */}
+        <section aria-label="How SurgeGuard Works" className="border-t border-border bg-surface/40 px-4 py-16 sm:px-6">
+          <div className="mx-auto max-w-5xl">
+            <div className="text-center">
+              <p className="text-xs font-semibold uppercase tracking-wider text-accent">How it works</p>
+              <h2 className="mt-2 text-2xl sm:text-3xl font-semibold tracking-[-0.02em] text-foreground">
+                Three calm steps. Zero server crashes.
+              </h2>
+              <p className="mx-auto mt-2 max-w-xl text-sm text-muted">
+                SurgeGuard sits transparently in front of your site. Your application code never changes.
+              </p>
+            </div>
+
+            <div className="mt-10 grid gap-5 sm:grid-cols-3">
+              <Card className="p-6 flex flex-col justify-between">
+                <div>
+                  <div className="flex size-10 items-center justify-center rounded-xl border border-border bg-surface-elevated text-foreground">
+                    <Users className="size-5 text-accent" />
+                  </div>
+                  <span className="mt-4 inline-block font-mono text-xs font-semibold text-subtle">01 / QUEUE</span>
+                  <h3 className="mt-1 text-base font-semibold text-foreground">Traffic Surges</h3>
+                  <p className="mt-2 text-xs sm:text-sm text-muted leading-relaxed">
+                    When visitors exceed capacity, edge Nginx directs them into a fair, verified virtual waiting room instead of letting requests crash your origin.
+                  </p>
+                </div>
+                <div className="mt-4 pt-3 border-t border-border text-[11px] font-mono text-subtle">
+                  State: In Virtual Queue
+                </div>
+              </Card>
+
+              <Card className="p-6 flex flex-col justify-between">
+                <div>
+                  <div className="flex size-10 items-center justify-center rounded-xl border border-border bg-surface-elevated text-foreground">
+                    <Gauge className="size-5 text-warning" />
+                  </div>
+                  <span className="mt-4 inline-block font-mono text-xs font-semibold text-subtle">02 / ORDER</span>
+                  <h3 className="mt-1 text-base font-semibold text-foreground">Fair Holding</h3>
+                  <p className="mt-2 text-xs sm:text-sm text-muted leading-relaxed">
+                    Visitors hold an exact FIFO position tracked in Redis with automatic heartbeats. If a user refreshes or reconnects, their place in line is preserved.
+                  </p>
+                </div>
+                <div className="mt-4 pt-3 border-t border-border text-[11px] font-mono text-subtle">
+                  Ordering: FIFO Sequence
+                </div>
+              </Card>
+
+              <Card className="p-6 flex flex-col justify-between">
+                <div>
+                  <div className="flex size-10 items-center justify-center rounded-xl border border-border bg-surface-elevated text-foreground">
+                    <ShieldCheck className="size-5 text-success" />
+                  </div>
+                  <span className="mt-4 inline-block font-mono text-xs font-semibold text-subtle">03 / ADMIT</span>
+                  <h3 className="mt-1 text-base font-semibold text-foreground">Smooth Admission</h3>
+                  <p className="mt-2 text-xs sm:text-sm text-muted leading-relaxed">
+                    The admission worker releases visitors at your chosen rate with a signed token. Nginx validates the token in sub-millisecond time.
+                  </p>
+                </div>
+                <div className="mt-4 pt-3 border-t border-border text-[11px] font-mono text-subtle">
+                  Security: HMAC-SHA256 Token
+                </div>
+              </Card>
             </div>
           </div>
         </section>
 
-        {/* Interactive Surge Simulator */}
-        <SurgeSimulator />
-
-        {/* Protected vs Unprotected Demo Comparison */}
-        <DemoComparison demoUrl={demoUrl} />
-
-        {/* AWS Cloud Club KIET Showcase */}
-        <CloudClubShowcase />
-
-        {/* Feature Grid */}
-        <Features />
-
-        {/* Step by Step Breakdown */}
-        <HowItWorks />
-
-        {/* Architecture Layout */}
-        <Architecture />
-
-        {/* Technology Stack */}
-        <Stack />
+        {/* Collapsible Deep Dive & Simulator */}
+        <LandingDeepDive
+          simulator={<SurgeSimulator />}
+          comparison={<DemoComparison demoUrl={demoUrl} />}
+          showcase={<CloudClubShowcase />}
+          features={<Features />}
+          architecture={<Architecture />}
+          stack={<Stack />}
+        />
       </main>
       <Footer />
     </>
