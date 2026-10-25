@@ -1,11 +1,17 @@
 "use client";
 
-import { RANGES, type RangeName } from "@/lib/promql";
+import { type RangeName } from "@/lib/promql";
 import { cn } from "@/components/ui/primitives";
 
-/** Segmented control for the chart time range (keyboard: arrow keys move between options). */
-export function RangeSelect({ value, onChange }: { value: RangeName; onChange: (range: RangeName) => void }) {
-  const options = Object.keys(RANGES) as RangeName[];
+export function RangeSelect({
+  value,
+  onChange,
+  options = ["15m", "1h", "6h", "24h"] as RangeName[],
+}: {
+  value: RangeName;
+  onChange: (range: RangeName) => void;
+  options?: RangeName[];
+}) {
   return (
     <div role="radiogroup" aria-label="Time range" className="inline-flex rounded-[10px] border border-border bg-surface p-0.5">
       {options.map((option) => (

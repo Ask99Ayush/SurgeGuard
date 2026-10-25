@@ -11,7 +11,7 @@ import {
 import { usePolling } from "@/hooks/usePolling";
 import { Card, CardHeader, cn } from "@/components/ui/primitives";
 import { formatRelative } from "@/lib/format";
-import type { EventItem } from "@/components/admin/types";
+import type { BackendsResponse, EventItem, Overview } from "@/components/admin/types";
 
 /* ─── Event metadata ─────────────────────────── */
 const META: Record<string, { label: string; icon: React.ElementType; color: string }> = {
@@ -24,12 +24,6 @@ const META: Record<string, { label: string; icon: React.ElementType; color: stri
   worker_leader: { label: "Worker Leader Changed", icon: Info, color: "text-accent" },
   rate_limit_exceeded: { label: "Rate Limit Hit", icon: AlertTriangle, color: "text-warning" },
 };
-
-const ALERT_KINDS = new Set(["backend_down", "admission_auto_paused"]);
-
-function isAlert(e: EventItem) {
-  return ALERT_KINDS.has(e.kind) || e.level === "error";
-}
 
 /* ─── Collapse repeated events ─────────────────── */
 interface CollapsedEvent {
@@ -51,27 +45,36 @@ function collapseEvents(events: EventItem[]): CollapsedEvent[] {
 }
 
 /* ─── Single event row ──────────────────────── */
-function EventRow({ event, count }: CollapsedEvent) {
+function EventRow({
+  event,
+  count,
+  isRecovered = false,
+}: CollapsedEvent & { isRecovered?: boolean }) {
   const meta = META[event.kind];
   const Icon = meta?.icon ?? Info;
   const label = meta?.label ?? event.kind.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
   const color = meta?.color ?? "text-muted";
-  const alert = isAlert(event);
+  const isErrorKind = event.kind === "backend_down" || event.kind === "admission_auto_paused" || event.level === "error";
 
   return (
     <li
       className={cn(
         "flex items-start gap-3 py-2.5",
-        alert && "rounded-xl border border-danger/20 bg-danger/5 px-2.5",
+        isErrorKind && !isRecovered && "rounded-xl border border-danger/20 bg-danger/5 px-2.5",
       )}
     >
       <Icon className={cn("mt-0.5 size-4 shrink-0", color)} aria-hidden />
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-semibold text-foreground">
-          {label}
+        <p className="flex flex-wrap items-center gap-1.5 text-sm font-semibold text-foreground">
+          <span>{label}</span>
           {count > 1 && (
-            <span className="ml-1.5 text-xs font-normal text-muted">
+            <span className="text-xs font-normal text-muted">
               ×{count}
+            </span>
+          )}
+          {isRecovered && (
+            <span className="rounded-md border border-success/30 bg-success/10 px-1.5 py-0.2 text-[10px] font-medium text-success">
+              Recovered
             </span>
           )}
         </p>
@@ -90,13 +93,17 @@ function EventRow({ event, count }: CollapsedEvent) {
 /* ─── Full drawer list ────────────────────────── */
 function AllEventsDrawer({
   events,
+  isBackendRecovered,
   onClose,
 }: {
   events: EventItem[];
+  isBackendRecovered: (e: EventItem) => boolean;
   onClose: () => void;
 }) {
   const [severity, setSeverity] = useState<"all" | "alerts">("all");
-  const filtered = severity === "alerts" ? events.filter(isAlert) : events;
+  const filtered = severity === "alerts"
+    ? events.filter((e) => e.level === "error" || e.kind === "backend_down" || e.kind === "admission_auto_paused")
+    : events;
   const collapsed = collapseEvents(filtered);
 
   return (
@@ -142,7 +149,11 @@ function AllEventsDrawer({
             </li>
           ) : (
             collapsed.map((item, i) => (
-              <EventRow key={`${item.event.ts_ms}-${i}`} {...item} />
+              <EventRow
+                key={`${item.event.ts_ms}-${i}`}
+                {...item}
+                isRecovered={isBackendRecovered(item.event)}
+              />
             ))
           )}
         </ol>
@@ -151,13 +162,99 @@ function AllEventsDrawer({
   );
 }
 
+export interface ActiveIncident {
+  id: string;
+  title: string;
+  detail: string;
+  severity: "danger" | "warning";
+}
+
 /* ─── WhatHappening (exported) ─────────────────── */
-export function WhatHappening() {
+export function WhatHappening({
+  overview = null,
+  backends = null,
+}: {
+  overview?: Overview | null;
+  backends?: BackendsResponse | null;
+} = {}) {
   const poll = usePolling<EventItem[]>("/api/admin/events?limit=100", 5_000);
   const events = poll.data ?? [];
   const [drawerOpen, setDrawerOpen] = useState(false);
 
-  const alerts = events.filter(isAlert);
+  // Compute ACTUAL ACTIVE ALERTS from live system state rather than historical log entries
+  const activeAlerts: ActiveIncident[] = [];
+
+  if (backends?.items) {
+    const downBackends = backends.items.filter((b) => b.healthy === false);
+    for (const b of downBackends) {
+      activeAlerts.push({
+        id: `backend-${b.name}`,
+        title: `Backend ${b.name} Health Check Failed`,
+        detail: b.last_error ?? "Consecutive health checks exceeded failure threshold",
+        severity: "danger",
+      });
+    }
+  } else if (overview && overview.backends.healthy < overview.backends.total) {
+    activeAlerts.push({
+      id: "backends-degraded",
+      title: `${overview.backends.total - overview.backends.healthy} Origin Node(s) Unhealthy`,
+      detail: "Traffic admission is operating in reduced capacity mode",
+      severity: "danger",
+    });
+  }
+
+  if (overview?.admission.auto_paused) {
+    activeAlerts.push({
+      id: "admission-auto-paused",
+      title: "Admission Auto-Paused",
+      detail: "All origin backends are unhealthy; admission halted to protect origins",
+      severity: "danger",
+    });
+  } else if (overview?.admission.paused) {
+    activeAlerts.push({
+      id: "admission-paused",
+      title: "Admission Manually Paused",
+      detail: "Operator has paused new visitor admissions",
+      severity: "warning",
+    });
+  }
+
+  if (overview && !overview.redis.ok) {
+    activeAlerts.push({
+      id: "redis-offline",
+      title: "Redis State Store Offline",
+      detail: "Queue service unreachable; proxy is failing closed",
+      severity: "danger",
+    });
+  }
+
+  if (overview && !overview.worker.alive) {
+    activeAlerts.push({
+      id: "worker-offline",
+      title: "Admission Worker Daemon Offline",
+      detail: "Worker heartbeat expired; queue processing halted",
+      severity: "danger",
+    });
+  }
+
+  // Check if a historical backend_down event is now recovered
+  function isBackendRecovered(e: EventItem): boolean {
+    if (e.kind !== "backend_down") return false;
+    // Check if the backend is currently healthy
+    if (backends?.items) {
+      const match = backends.items.find((b) => e.message.includes(b.name));
+      if (match) return match.healthy === true;
+    }
+    if (overview && overview.backends.healthy === overview.backends.total && overview.backends.total > 0) {
+      return true;
+    }
+    // Also check if there's a subsequent backend_recovered event
+    const laterRecovery = events.some(
+      (other) => other.kind === "backend_recovered" && other.ts_ms >= e.ts_ms,
+    );
+    return laterRecovery;
+  }
+
   const recent = events.slice(0, 5);
   const collapsed = collapseEvents(recent);
 
@@ -166,7 +263,7 @@ export function WhatHappening() {
       <Card className="flex flex-col">
         <CardHeader
           title="What's happening"
-          description="Latest 5 system events in plain language."
+          description="Recent operational events and current incident alerts."
           action={
             <button
               type="button"
@@ -178,31 +275,43 @@ export function WhatHappening() {
           }
         />
         <div className="flex flex-1 flex-col px-5 pb-5 pt-2">
-          {/* Active alerts pinned at top */}
-          {alerts.length > 0 && (
-            <div className="mb-3 rounded-xl border border-danger/30 bg-danger/8 px-3 py-2">
-              <p className="text-xs font-semibold text-danger">
-                {alerts.length} active alert{alerts.length !== 1 ? "s" : ""}
-              </p>
-              <ul className="mt-1 space-y-0.5">
-                {alerts.slice(0, 2).map((e, i) => (
-                  <li key={i} className="text-xs text-muted">
-                    {META[e.kind]?.label ?? e.kind} — {formatRelative(e.ts_ms)}
+          {/* Active alerts banner: ONLY shows when an alert is genuinely active right now */}
+          {activeAlerts.length > 0 && (
+            <div className="mb-3 rounded-xl border border-danger/30 bg-danger/8 px-3.5 py-2.5">
+              <div className="flex items-center justify-between">
+                <p className="flex items-center gap-1.5 text-xs font-semibold text-danger">
+                  <AlertTriangle className="size-3.5" aria-hidden />
+                  {activeAlerts.length} active alert{activeAlerts.length !== 1 ? "s" : ""}
+                </p>
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-danger/80">
+                  Active Incident
+                </span>
+              </div>
+              <ul className="mt-2 space-y-1.5">
+                {activeAlerts.map((a) => (
+                  <li key={a.id} className="text-xs">
+                    <span className="font-semibold text-foreground">{a.title}</span> —{" "}
+                    <span className="text-muted">{a.detail}</span>
                   </li>
                 ))}
               </ul>
             </div>
           )}
 
-          {/* No alerts reassurance */}
-          {alerts.length === 0 && events.length > 0 && (
-            <p className="mb-3 flex items-center gap-1.5 text-xs text-success">
-              <CheckCircle2 className="size-3.5" aria-hidden />
-              No active alerts
-            </p>
+          {/* Genuine No-Alerts Reassurance: Shown when all systems are healthy */}
+          {activeAlerts.length === 0 && (
+            <div className="mb-3 flex items-center justify-between rounded-xl border border-success/20 bg-success/5 px-3 py-2 text-xs text-success">
+              <span className="flex items-center gap-1.5 font-medium">
+                <CheckCircle2 className="size-3.5" aria-hidden />
+                All systems normal · No active alerts
+              </span>
+              <span className="text-[11px] text-subtle">
+                Historical event log below
+              </span>
+            </div>
           )}
 
-          {/* Events */}
+          {/* Event Stream */}
           {poll.status === "loading" ? (
             <div className="space-y-2">
               {[0, 1, 2].map((i) => (
@@ -220,7 +329,11 @@ export function WhatHappening() {
           ) : (
             <ol className="divide-y divide-border">
               {collapsed.map((item, i) => (
-                <EventRow key={`${item.event.ts_ms}-${i}`} {...item} />
+                <EventRow
+                  key={`${item.event.ts_ms}-${i}`}
+                  {...item}
+                  isRecovered={isBackendRecovered(item.event)}
+                />
               ))}
             </ol>
           )}
@@ -228,7 +341,11 @@ export function WhatHappening() {
       </Card>
 
       {drawerOpen && (
-        <AllEventsDrawer events={events} onClose={() => setDrawerOpen(false)} />
+        <AllEventsDrawer
+          events={events}
+          isBackendRecovered={isBackendRecovered}
+          onClose={() => setDrawerOpen(false)}
+        />
       )}
     </>
   );

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { useRouter } from "next/navigation";
-import { BarChart2, Command, ExternalLink, Layout, Monitor, Search, Server, Settings, Users } from "lucide-react";
+import { BarChart2, Clock, Command, ExternalLink, Layout, Monitor, MonitorPlay, Search, Server, Settings, Users } from "lucide-react";
 import { cn } from "@/components/ui/primitives";
 import { NAV } from "@/components/admin/AdminShell";
 import { usePolling } from "@/hooks/usePolling";
@@ -48,6 +48,22 @@ export function CommandPalette({ grafanaUrl }: { grafanaUrl?: string | null }) {
       action: () => { router.push(href); close(); },
       group: "Navigation",
     })),
+    {
+      id: "live-projector",
+      label: "Launch Live Projector View",
+      icon: MonitorPlay,
+      action: () => { router.push("/live"); close(); },
+      group: "Navigation",
+      keywords: "live projector wallboard kiosk",
+    },
+    {
+      id: "waiting-room",
+      label: "Preview Visitor Waiting Room",
+      icon: Clock,
+      action: () => { window.open("/waiting-room", "_blank", "noreferrer"); close(); },
+      group: "Navigation",
+      keywords: "visitor waiting room client queue ticket",
+    },
     ...(gUrl
       ? [
           {
