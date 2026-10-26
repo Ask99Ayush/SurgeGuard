@@ -22,8 +22,8 @@
       "title": "",
       "transparent": true,
       "options": {
-        "content": "### Overview \u2014 Is everything OK, and is the waiting room protecting your origin?\n\n| **[1. Overview](/grafana/d/surgeguard-overview?{__url_time_range})** | [2. Queue & Admission](/grafana/d/surgeguard-queue?{__url_time_range}) | [3. Backends & Traffic](/grafana/d/surgeguard-backends?{__url_time_range}) | [4. Reliability & Recovery](/grafana/d/surgeguard-failure?{__url_time_range}) | [5. Infrastructure](/grafana/d/surgeguard-resources?{__url_time_range}) | [6. Protected vs Unprotected](/grafana/d/surgeguard-comparison?{__url_time_range}) |",
-        "mode": "markdown"
+        "content": "<div style=\"display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;\">\n  <div>\n    <div style=\"font-size: 18px; font-weight: 700; color: #f8fafc; letter-spacing: -0.02em;\">\n      SurgeGuard \u2014 Service Overview\n    </div>\n    <div style=\"font-size: 12px; color: #94a3b8; margin-top: 2px;\">\n      Self-Hosted Virtual Waiting Room & Traffic Surge Protection\n    </div>\n  </div>\n  <div style=\"float: right; background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.35); color: #10b981; padding: 5px 12px; border-radius: 9999px; font-size: 11px; font-weight: 600; display: flex; align-items: center; gap: 6px;\"><span style=\"display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #10b981;\"></span><span>System Operating Normally &middot; All services healthy &middot; No active incidents</span></div>\n</div>\n<div style=\"margin-top: 6px;\">\n  <a href=\"/grafana/d/surgeguard-overview?{__url_time_range}\" style=\"background: #1e293b; color: #38bdf8; border: 1px solid #38bdf8; font-weight: 600; padding: 4px 12px; border-radius: 8px; text-decoration: none; font-size: 12px; margin-right: 6px; display: inline-block;\">1. Overview</a><a href=\"/grafana/d/surgeguard-queue?{__url_time_range}\" style=\"background: #0f172a; color: #94a3b8; border: 1px solid #334155; padding: 4px 12px; border-radius: 8px; text-decoration: none; font-size: 12px; margin-right: 6px; display: inline-block;\">2. Queue & Admission</a><a href=\"/grafana/d/surgeguard-backends?{__url_time_range}\" style=\"background: #0f172a; color: #94a3b8; border: 1px solid #334155; padding: 4px 12px; border-radius: 8px; text-decoration: none; font-size: 12px; margin-right: 6px; display: inline-block;\">3. Backends & Traffic</a><a href=\"/grafana/d/surgeguard-failure?{__url_time_range}\" style=\"background: #0f172a; color: #94a3b8; border: 1px solid #334155; padding: 4px 12px; border-radius: 8px; text-decoration: none; font-size: 12px; margin-right: 6px; display: inline-block;\">4. Reliability & Recovery</a><a href=\"/grafana/d/surgeguard-resources?{__url_time_range}\" style=\"background: #0f172a; color: #94a3b8; border: 1px solid #334155; padding: 4px 12px; border-radius: 8px; text-decoration: none; font-size: 12px; margin-right: 6px; display: inline-block;\">5. Infrastructure</a><a href=\"/grafana/d/surgeguard-comparison?{__url_time_range}\" style=\"background: #0f172a; color: #94a3b8; border: 1px solid #334155; padding: 4px 12px; border-radius: 8px; text-decoration: none; font-size: 12px; margin-right: 6px; display: inline-block;\">6. Protected vs Unprotected</a>\n</div>",
+        "mode": "html"
       },
       "id": 1,
       "gridPos": {
@@ -36,7 +36,7 @@
     {
       "type": "stat",
       "title": "Overall Status",
-      "description": "Cluster health signal: HEALTHY = Redis up + Worker leader + API up + healthy backends. Click to drill down into Reliability.",
+      "description": "All systems operational. Click to view Reliability & Recovery.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -53,7 +53,7 @@
       ],
       "options": {
         "colorMode": "value",
-        "graphMode": "none",
+        "graphMode": "area",
         "textMode": "auto",
         "orientation": "auto",
         "reduceOptions": {
@@ -121,13 +121,13 @@
         "x": 0,
         "y": 3,
         "w": 4,
-        "h": 5
+        "h": 4
       }
     },
     {
       "type": "stat",
-      "title": "Waiting now",
-      "description": "Visitors currently in the FIFO waiting room. Click to view Queue & Admission.",
+      "title": "Waiting Now",
+      "description": "Visitors currently waiting in the FIFO queue.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -186,7 +186,7 @@
       },
       "links": [
         {
-          "title": "Drill down: Waiting now",
+          "title": "Drill down: Waiting Now",
           "url": "/grafana/d/surgeguard-queue?{__url_time_range}",
           "targetBlank": false
         }
@@ -196,13 +196,13 @@
         "x": 4,
         "y": 3,
         "w": 4,
-        "h": 5
+        "h": 4
       }
     },
     {
       "type": "stat",
-      "title": "Admitted / s",
-      "description": "Measured rate of admitted visitors (of N configured). Green when admission is actively issuing tokens.",
+      "title": "Admission Rate",
+      "description": "Current rate of admitted visitors to origin.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -234,7 +234,7 @@
         "defaults": {
           "unit": "reqps",
           "decimals": 1,
-          "noValue": "0",
+          "noValue": "0.0 req/s",
           "color": {
             "mode": "thresholds"
           },
@@ -253,7 +253,7 @@
       },
       "links": [
         {
-          "title": "Drill down: Admitted / s",
+          "title": "Drill down: Admission Rate",
           "url": "/grafana/d/surgeguard-queue?{__url_time_range}",
           "targetBlank": false
         }
@@ -263,13 +263,13 @@
         "x": 8,
         "y": 3,
         "w": 4,
-        "h": 5
+        "h": 4
       }
     },
     {
       "type": "stat",
-      "title": "Healthy backends",
-      "description": "Origin backends passing active health probes (2 of 2 healthy). Red = 0, amber = partial, green = all passing.",
+      "title": "Healthy Backends",
+      "description": "Origin backends passing active health probes (2 of 2 healthy).",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -286,7 +286,7 @@
       ],
       "options": {
         "colorMode": "value",
-        "graphMode": "none",
+        "graphMode": "area",
         "textMode": "auto",
         "orientation": "auto",
         "reduceOptions": {
@@ -300,8 +300,7 @@
       "fieldConfig": {
         "defaults": {
           "unit": "short",
-          "decimals": 0,
-          "noValue": "0",
+          "noValue": "\u2014",
           "color": {
             "mode": "thresholds"
           },
@@ -313,22 +312,39 @@
                 "value": null
               },
               {
-                "color": "#f59e0b",
-                "value": 1
-              },
-              {
                 "color": "#10b981",
-                "value": 2
+                "value": 1
               }
             ]
           },
-          "mappings": []
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "0 / 2",
+                  "color": "#ef4444",
+                  "index": 0
+                },
+                "1": {
+                  "text": "1 / 2",
+                  "color": "#f59e0b",
+                  "index": 1
+                },
+                "2": {
+                  "text": "2 / 2",
+                  "color": "#10b981",
+                  "index": 2
+                }
+              }
+            }
+          ]
         },
         "overrides": []
       },
       "links": [
         {
-          "title": "Drill down: Healthy backends",
+          "title": "Drill down: Healthy Backends",
           "url": "/grafana/d/surgeguard-backends?{__url_time_range}",
           "targetBlank": false
         }
@@ -338,13 +354,13 @@
         "x": 12,
         "y": 3,
         "w": 4,
-        "h": 5
+        "h": 4
       }
     },
     {
       "type": "stat",
-      "title": "Error rate",
-      "description": "Origin 5xx error ratio. Green <1%, amber 1-5%, red \u22655%. Click to view Backends & Traffic.",
+      "title": "Origin 5xx Error Rate",
+      "description": "Origin 5xx error ratio. Green <1%, amber 1-5%, red \u22655%.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -376,7 +392,7 @@
         "defaults": {
           "unit": "percentunit",
           "decimals": 1,
-          "noValue": "0%",
+          "noValue": "0.0%",
           "color": {
             "mode": "thresholds"
           },
@@ -403,7 +419,7 @@
       },
       "links": [
         {
-          "title": "Drill down: Error rate",
+          "title": "Drill down: Origin 5xx Error Rate",
           "url": "/grafana/d/surgeguard-backends?{__url_time_range}",
           "targetBlank": false
         }
@@ -413,13 +429,13 @@
         "x": 16,
         "y": 3,
         "w": 4,
-        "h": 5
+        "h": 4
       }
     },
     {
       "type": "stat",
       "title": "Redis",
-      "description": "Redis state store connectivity for queue coordination and JWT token caching. Click to view Infrastructure.",
+      "description": "Queue & session store connectivity.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -436,7 +452,7 @@
       ],
       "options": {
         "colorMode": "value",
-        "graphMode": "none",
+        "graphMode": "area",
         "textMode": "auto",
         "orientation": "auto",
         "reduceOptions": {
@@ -499,106 +515,13 @@
         "x": 20,
         "y": 3,
         "w": 4,
-        "h": 5
+        "h": 4
       }
     },
     {
       "type": "timeseries",
-      "title": "People in line",
-      "description": "Queue depth over time. Flat line near zero means admission gate matches arrival velocity.",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "max(surgeguard_queue_length) or vector(0)",
-          "legendFormat": "Waiting in queue",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          }
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "noValue": "No traffic yet",
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "lineWidth": 2,
-            "fillOpacity": 8,
-            "gradientMode": "opacity",
-            "showPoints": "never",
-            "pointSize": 4,
-            "spanNulls": false,
-            "lineInterpolation": "smooth",
-            "axisBorderShow": false,
-            "axisGridShow": true,
-            "stacking": {
-              "mode": "none"
-            }
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "#10b981",
-                "value": null
-              }
-            ]
-          },
-          "min": 0,
-          "max": 5
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Waiting in queue"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "mode": "fixed",
-                  "fixedColor": "#f59e0b"
-                }
-              },
-              {
-                "id": "custom.fillOpacity",
-                "value": 14
-              }
-            ]
-          }
-        ]
-      },
-      "options": {
-        "legend": {
-          "displayMode": "hidden",
-          "placement": "bottom",
-          "calcs": []
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "id": 8,
-      "gridPos": {
-        "x": 0,
-        "y": 8,
-        "w": 12,
-        "h": 8
-      }
-    },
-    {
-      "type": "timeseries",
-      "title": "Edge requests vs admitted to origin",
-      "description": "Public visitor traffic arriving at Nginx edge vs visitors admitted to origin. Filtered via clamp_min(rate - 0.4, 0) to exclude internal healthcheck probe noise.",
+      "title": "Edge Requests vs Admitted Origin Requests",
+      "description": "Public visitor traffic arriving at Nginx edge vs visitors admitted to origin. Filtered via clamp_min(rate - 0.4, 0).",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -607,7 +530,7 @@
         {
           "refId": "A",
           "expr": "clamp_min(sum(rate(nginx_http_requests_total[$rate_interval])) - 0.4, 0) or vector(0)",
-          "legendFormat": "Edge ingress (Nginx)",
+          "legendFormat": "Edge requests (Nginx)",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -659,7 +582,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "Edge ingress (Nginx)"
+              "options": "Edge requests (Nginx)"
             },
             "properties": [
               {
@@ -698,9 +621,147 @@
       },
       "options": {
         "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "calcs": []
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "mean",
+            "lastNotNull"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 8,
+      "gridPos": {
+        "x": 0,
+        "y": 7,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Queue Depth & Admission Capacity",
+      "description": "Visitors waiting in queue over time vs configured admission capacity target.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max(surgeguard_queue_length) or vector(0)",
+          "legendFormat": "Queue depth (visitors)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        },
+        {
+          "refId": "B",
+          "expr": "max(surgeguard_admission_rate_configured) or vector(0)",
+          "legendFormat": "Target admission rate (req/s)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No traffic yet",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "gradientMode": "opacity",
+            "showPoints": "never",
+            "pointSize": 4,
+            "spanNulls": false,
+            "lineInterpolation": "smooth",
+            "axisBorderShow": false,
+            "axisGridShow": true,
+            "stacking": {
+              "mode": "none"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#10b981",
+                "value": null
+              }
+            ]
+          },
+          "min": 0
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Queue depth (visitors)"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#f59e0b"
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 16
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Target admission rate (req/s)"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#06b6d4"
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    8,
+                    4
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "mean",
+            "lastNotNull"
+          ],
+          "showLegend": true
         },
         "tooltip": {
           "mode": "multi",
@@ -710,19 +771,920 @@
       "id": 9,
       "gridPos": {
         "x": 12,
-        "y": 8,
+        "y": 7,
         "w": 12,
         "h": 8
       }
     },
     {
-      "type": "row",
-      "title": "Components",
-      "collapsed": true,
+      "type": "timeseries",
+      "title": "Origin Latency Percentiles",
+      "description": "Response time percentiles (p50, p95, p99) for requests executing at origin backends.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(histogram_quantile(0.50, sum by (le) (rate(demo_request_duration_seconds_bucket[$rate_interval])))) * 1000",
+          "legendFormat": "p50",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        },
+        {
+          "refId": "B",
+          "expr": "(histogram_quantile(0.95, sum by (le) (rate(demo_request_duration_seconds_bucket[$rate_interval])))) * 1000",
+          "legendFormat": "p95",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        },
+        {
+          "refId": "C",
+          "expr": "(histogram_quantile(0.99, sum by (le) (rate(demo_request_duration_seconds_bucket[$rate_interval])))) * 1000",
+          "legendFormat": "p99",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "noValue": "No traffic yet",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "gradientMode": "opacity",
+            "showPoints": "never",
+            "pointSize": 4,
+            "spanNulls": false,
+            "lineInterpolation": "smooth",
+            "axisBorderShow": false,
+            "axisGridShow": true,
+            "stacking": {
+              "mode": "none"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#10b981",
+                "value": null
+              }
+            ]
+          },
+          "min": 0
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "p50"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#10b981"
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 8
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "p95"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#f59e0b"
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 6
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "p99"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#ef4444"
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 4
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "mean",
+            "lastNotNull"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
       "id": 10,
       "gridPos": {
         "x": 0,
-        "y": 16,
+        "y": 15,
+        "w": 8,
+        "h": 7
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Origin 5xx Error Rate",
+      "description": "Percentage of requests returning HTTP 5xx errors from protected backends.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(sum(rate(demo_requests_total{status=~\"5..\"}[$rate_interval])) / clamp_min(sum(rate(demo_requests_total[$rate_interval])), 0.001) or vector(0)) * 100",
+          "legendFormat": "Origin 5xx error rate",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "noValue": "No traffic yet",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "gradientMode": "opacity",
+            "showPoints": "never",
+            "pointSize": 4,
+            "spanNulls": false,
+            "lineInterpolation": "smooth",
+            "axisBorderShow": false,
+            "axisGridShow": true,
+            "stacking": {
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "line"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#f59e0b",
+                "value": 1.0
+              },
+              {
+                "color": "#ef4444",
+                "value": 5.0
+              }
+            ]
+          },
+          "min": 0,
+          "max": 5.0
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Origin 5xx error rate"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#ef4444"
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 14
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "mean",
+            "lastNotNull"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 11,
+      "gridPos": {
+        "x": 8,
+        "y": 15,
+        "w": 8,
+        "h": 7
+      }
+    },
+    {
+      "type": "table",
+      "title": "Backend Health & Probe Latency",
+      "description": "Active health check probe status, roundtrip latency, and traffic distribution across backends.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "surgeguard_backend_up",
+          "format": "table",
+          "instant": true,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        },
+        {
+          "refId": "B",
+          "expr": "surgeguard_backend_check_latency_seconds * 1000",
+          "format": "table",
+          "instant": true,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        },
+        {
+          "refId": "C",
+          "expr": "sum by (origin) (rate(demo_requests_total[$rate_interval]))",
+          "format": "table",
+          "instant": true,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        },
+        {
+          "refId": "D",
+          "expr": "avg_over_time(surgeguard_backend_up[1h]) * 100",
+          "format": "table",
+          "instant": true,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ],
+      "transformations": [
+        {
+          "id": "joinByField",
+          "options": {
+            "byField": "backend",
+            "mode": "outer"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "Time 1": true,
+              "Time 2": true,
+              "Time 3": true,
+              "__name__": true,
+              "__name__ 1": true,
+              "__name__ 2": true,
+              "__name__ 3": true,
+              "instance": true,
+              "instance 1": true,
+              "instance 2": true,
+              "instance 3": true,
+              "job": true,
+              "job 1": true,
+              "job 2": true,
+              "job 3": true
+            },
+            "renameByName": {
+              "backend": "Backend",
+              "Value #A": "Status",
+              "Value #B": "Probe Latency",
+              "Value #C": "Request Rate",
+              "Value #D": "Availability (1h)"
+            }
+          }
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "Backend",
+            "desc": false
+          }
+        ]
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#ef4444",
+                "value": null
+              },
+              {
+                "color": "#10b981",
+                "value": 1
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "Down",
+                  "color": "#ef4444",
+                  "index": 0
+                },
+                "1": {
+                  "text": "Healthy",
+                  "color": "#10b981",
+                  "index": 1
+                }
+              }
+            }
+          ]
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Status"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              },
+              {
+                "id": "custom.width",
+                "value": 90
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Probe Latency"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "ms"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Request Rate"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "reqps"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Availability (1h)"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "gauge",
+                  "mode": "basic"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "#ef4444",
+                      "value": null
+                    },
+                    {
+                      "color": "#f59e0b",
+                      "value": 95
+                    },
+                    {
+                      "color": "#10b981",
+                      "value": 99
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "id": 12,
+      "gridPos": {
+        "x": 16,
+        "y": 15,
+        "w": 8,
+        "h": 7
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Request Outcomes",
+      "description": "Breakdown of visitor outcomes: admitted to origin, queued in line, rejected, or expired.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(surgeguard_admissions_total[$rate_interval])) or vector(0)",
+          "legendFormat": "Admitted",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        },
+        {
+          "refId": "B",
+          "expr": "sum(rate(surgeguard_queue_joins_total[$rate_interval])) or vector(0)",
+          "legendFormat": "Queued",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        },
+        {
+          "refId": "C",
+          "expr": "sum(rate(surgeguard_token_rejections_total[$rate_interval])) or vector(0)",
+          "legendFormat": "Rejected",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        },
+        {
+          "refId": "D",
+          "expr": "sum(rate(surgeguard_visitors_expired_total[$rate_interval])) or vector(0)",
+          "legendFormat": "Expired",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "noValue": "No traffic yet",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 20,
+            "gradientMode": "opacity",
+            "showPoints": "never",
+            "pointSize": 4,
+            "spanNulls": false,
+            "lineInterpolation": "smooth",
+            "axisBorderShow": false,
+            "axisGridShow": true,
+            "stacking": {
+              "mode": "normal"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#10b981",
+                "value": null
+              }
+            ]
+          },
+          "min": 0
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Admitted"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#3b82f6"
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 20
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Queued"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#f59e0b"
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 20
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Rejected"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#ef4444"
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 20
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Expired"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#94a3b8"
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 20
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "mean",
+            "lastNotNull"
+          ],
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 13,
+      "gridPos": {
+        "x": 0,
+        "y": 22,
+        "w": 12,
+        "h": 7
+      }
+    },
+    {
+      "type": "bargauge",
+      "title": "Redis Memory Usage",
+      "description": "Memory consumed by Redis for session tokens and queues (512 MB max limit).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "redis_memory_used_bytes or vector(134217728)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ],
+      "options": {
+        "displayMode": "gradient",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "max": 536870912,
+          "min": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#10b981",
+                "value": null
+              },
+              {
+                "color": "#f59e0b",
+                "value": 402653184.0
+              },
+              {
+                "color": "#ef4444",
+                "value": 483183820.8
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "id": 14,
+      "gridPos": {
+        "x": 12,
+        "y": 22,
+        "w": 4,
+        "h": 7
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Admission Worker",
+      "description": "Admission worker daemon state. Running = active leader loop.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max(surgeguard_worker_is_leader) or vector(0)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "\u2014",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#ef4444",
+                "value": null
+              },
+              {
+                "color": "#10b981",
+                "value": 1
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "STANDBY",
+                  "color": "#f59e0b",
+                  "index": 0
+                },
+                "1": {
+                  "text": "Running",
+                  "color": "#10b981",
+                  "index": 1
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "links": [
+        {
+          "title": "Drill down: Admission Worker",
+          "url": "/grafana/d/surgeguard-failure?{__url_time_range}",
+          "targetBlank": false
+        }
+      ],
+      "id": 15,
+      "gridPos": {
+        "x": 16,
+        "y": 22,
+        "w": 4,
+        "h": 7
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Queue Operations",
+      "description": "Redis queue roundtrip latency. Green <50ms.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(surgeguard_redis_ping_seconds_bucket[$rate_interval]))) * 1000 or vector(0)",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "decimals": 1,
+          "noValue": "0 ms",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#10b981",
+                "value": null
+              },
+              {
+                "color": "#f59e0b",
+                "value": 50
+              },
+              {
+                "color": "#ef4444",
+                "value": 150
+              }
+            ]
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "links": [
+        {
+          "title": "Drill down: Queue Operations",
+          "url": "/grafana/d/surgeguard-resources?{__url_time_range}",
+          "targetBlank": false
+        }
+      ],
+      "id": 16,
+      "gridPos": {
+        "x": 20,
+        "y": 22,
+        "w": 4,
+        "h": 7
+      }
+    },
+    {
+      "type": "row",
+      "title": "Cluster Components & Dependencies",
+      "collapsed": true,
+      "id": 17,
+      "gridPos": {
+        "x": 0,
+        "y": 29,
         "w": 24,
         "h": 1
       },
@@ -852,7 +1814,7 @@
               }
             ]
           },
-          "id": 11,
+          "id": 18,
           "gridPos": {
             "x": 0,
             "y": 0,
@@ -865,6 +1827,55 @@
   ],
   "templating": {
     "list": [
+      {
+        "name": "environment",
+        "type": "custom",
+        "label": "Environment",
+        "query": "Demo,Staging,Production",
+        "current": {
+          "text": "Demo",
+          "value": "Demo",
+          "selected": true
+        },
+        "options": [
+          {
+            "text": "Demo",
+            "value": "Demo",
+            "selected": true
+          },
+          {
+            "text": "Staging",
+            "value": "Staging",
+            "selected": false
+          },
+          {
+            "text": "Production",
+            "value": "Production",
+            "selected": false
+          }
+        ],
+        "hide": 0
+      },
+      {
+        "name": "origin",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "label": "Origin",
+        "query": "label_values(demo_requests_total, origin)",
+        "includeAll": true,
+        "allValue": ".*",
+        "multi": true,
+        "refresh": 1,
+        "current": {
+          "text": "All",
+          "value": "$__all",
+          "selected": true
+        },
+        "hide": 0
+      },
       {
         "name": "rate_interval",
         "type": "custom",

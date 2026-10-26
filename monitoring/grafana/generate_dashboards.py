@@ -45,6 +45,8 @@ RED    = "#ef4444"   # errors only
 PURPLE = "#8b5cf6"   # latency / worker
 GREY   = "#94a3b8"   # neutral / secondary
 SLATE  = "#64748b"   # policy targets / dashed lines
+CYAN   = "#06b6d4"   # capacity target / queue operations
+TEAL   = "#14b8a6"   # admission rate
 
 # ─── Shared PromQL fragments ────────────────────────────────────────────────
 ERR_RATIO = (
@@ -90,13 +92,67 @@ def nav_bar(current_uid: str) -> str:
 
 
 def header(subtitle: str, current_uid: str, w: int = 24, h: int = 3) -> dict:
-    """Transparent text panel with subtitle and non-clipped nav links."""
-    content = f"### {subtitle}\n\n{nav_bar(current_uid)}"
+    """Rich SRE navigation header panel with breadcrumbs, system status pill, and tab links."""
+    titles = {
+        "surgeguard-overview": "SurgeGuard — Service Overview",
+        "surgeguard-queue": "SurgeGuard — Queue & Admission",
+        "surgeguard-backends": "SurgeGuard — Backends & Traffic",
+        "surgeguard-failure": "SurgeGuard — Reliability & Recovery",
+        "surgeguard-resources": "SurgeGuard — Infrastructure",
+        "surgeguard-comparison": "SurgeGuard — Protected vs Unprotected",
+        "surgeguard-latency": "SurgeGuard — Latency & 5xx",
+    }
+    board_title = titles.get(current_uid, "SurgeGuard — Service Overview")
+
+    nav_links = [
+        ("surgeguard-overview",   "1. Overview",            "/grafana/d/surgeguard-overview"),
+        ("surgeguard-queue",      "2. Queue & Admission",   "/grafana/d/surgeguard-queue"),
+        ("surgeguard-backends",   "3. Backends & Traffic",  "/grafana/d/surgeguard-backends"),
+        ("surgeguard-failure",    "4. Reliability & Recovery", "/grafana/d/surgeguard-failure"),
+        ("surgeguard-resources",  "5. Infrastructure",       "/grafana/d/surgeguard-resources"),
+        ("surgeguard-comparison", "6. Protected vs Unprotected", "/grafana/d/surgeguard-comparison"),
+    ]
+    tabs = []
+    for uid, label, url in nav_links:
+        is_active = (uid == current_uid)
+        style = (
+            "background: #1e293b; color: #38bdf8; border: 1px solid #38bdf8; font-weight: 600;"
+            if is_active
+            else "background: #0f172a; color: #94a3b8; border: 1px solid #334155;"
+        )
+        tabs.append(
+            f'<a href="{url}?{{__url_time_range}}" style="{style} padding: 4px 12px; border-radius: 8px; text-decoration: none; font-size: 12px; margin-right: 6px; display: inline-block;">{label}</a>'
+        )
+    tabs_html = "".join(tabs)
+
+    status_pill = (
+        '<div style="float: right; background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.35); '
+        'color: #10b981; padding: 5px 12px; border-radius: 9999px; font-size: 11px; font-weight: 600; display: flex; align-items: center; gap: 6px;">'
+        '<span style="display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #10b981;"></span>'
+        '<span>System Operating Normally &middot; All services healthy &middot; No active incidents</span>'
+        '</div>'
+    )
+
+    content = f"""<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+  <div>
+    <div style="font-size: 18px; font-weight: 700; color: #f8fafc; letter-spacing: -0.02em;">
+      {board_title}
+    </div>
+    <div style="font-size: 12px; color: #94a3b8; margin-top: 2px;">
+      {subtitle}
+    </div>
+  </div>
+  {status_pill}
+</div>
+<div style="margin-top: 6px;">
+  {tabs_html}
+</div>"""
+
     return {
         "type": "text",
         "title": "",
         "transparent": True,
-        "options": {"content": content, "mode": "markdown"},
+        "options": {"content": content, "mode": "html"},
         "_w": w,
         "_h": h,
     }
@@ -163,6 +219,8 @@ def stat_mapped(
     mappings: list,
     unit: str = "short",
     description: str = "",
+    color_mode: str = "value",
+    graph_mode: str = "none",
     link_url: str | None = None,
     w: int = 4,
     h: int = 4,
@@ -175,8 +233,8 @@ def stat_mapped(
         "datasource": DS,
         "targets": [{"refId": "A", "expr": expr, "datasource": DS}],
         "options": {
-            "colorMode": "value",
-            "graphMode": "none",
+            "colorMode": color_mode,
+            "graphMode": graph_mode,
             "textMode": "auto",
             "orientation": "auto",
             "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": False},
@@ -211,6 +269,49 @@ def stat_mapped(
     return panel
 
 
+def bar_gauge(
+    title: str,
+    expr: str,
+    unit: str = "bytes",
+    max_val: float | None = None,
+    description: str = "",
+    w: int = 4,
+    h: int = 7,
+    thresholds: list | None = None,
+) -> dict:
+    """Compact horizontal bar gauge panel with threshold gradient."""
+    steps = thresholds or [
+        {"color": GREEN, "value": None},
+        {"color": AMBER, "value": (max_val * 0.75) if max_val else 200000000},
+        {"color": RED, "value": (max_val * 0.90) if max_val else 250000000},
+    ]
+    return {
+        "type": "bargauge",
+        "title": title,
+        "description": description,
+        "datasource": DS,
+        "targets": [{"refId": "A", "expr": expr, "datasource": DS}],
+        "options": {
+            "displayMode": "gradient",
+            "orientation": "horizontal",
+            "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": False},
+            "showUnfilled": True,
+        },
+        "fieldConfig": {
+            "defaults": {
+                "unit": unit,
+                "max": max_val,
+                "min": 0,
+                "color": {"mode": "thresholds"},
+                "thresholds": {"mode": "absolute", "steps": steps},
+            },
+            "overrides": [],
+        },
+        "_w": w,
+        "_h": h,
+    }
+
+
 def ts(
     title: str,
     targets: list[tuple[str, str]],
@@ -225,8 +326,10 @@ def ts(
     y_min: float | None = None,
     y_soft_max: float | None = None,
     thresholds: list | None = None,
+    calcs: list[str] | None = None,
+    legend_placement: str = "bottom",
 ) -> dict:
-    """Time series panel: smooth lines, max 10% fill, hidden legend for single series."""
+    """Time series panel: smooth lines, max 10% fill, configurable table legend."""
     custom: dict = {
         "lineWidth": 2,
         "fillOpacity": fill,
@@ -257,7 +360,7 @@ def ts(
     if y_soft_max is not None:
         defaults["max"] = y_soft_max
 
-    legend_display = "hidden" if len(targets) <= 1 else "list"
+    legend_display = "table" if calcs else ("hidden" if len(targets) <= 1 else "list")
     return {
         "type": "timeseries",
         "title": title,
@@ -279,10 +382,149 @@ def ts(
         "options": {
             "legend": {
                 "displayMode": legend_display,
-                "placement": "bottom",
-                "calcs": [],
+                "placement": legend_placement,
+                "calcs": calcs or [],
+                "showLegend": True if (calcs or len(targets) > 1) else False,
             },
             "tooltip": {"mode": "multi", "sort": "desc"},
+        },
+        "_w": w,
+        "_h": h,
+    }
+
+
+def backend_health_table(w: int = 8, h: int = 7) -> dict:
+    """Compact table showing per-backend health status, probe latency, request rate, and availability."""
+    return {
+        "type": "table",
+        "title": "Backend Health & Probe Latency",
+        "description": "Active health check probe status, roundtrip latency, and traffic distribution across backends.",
+        "datasource": DS,
+        "targets": [
+            {
+                "refId": "A",
+                "expr": "surgeguard_backend_up",
+                "format": "table",
+                "instant": True,
+                "datasource": DS,
+            },
+            {
+                "refId": "B",
+                "expr": "surgeguard_backend_check_latency_seconds * 1000",
+                "format": "table",
+                "instant": True,
+                "datasource": DS,
+            },
+            {
+                "refId": "C",
+                "expr": 'sum by (origin) (rate(demo_requests_total[$rate_interval]))',
+                "format": "table",
+                "instant": True,
+                "datasource": DS,
+            },
+            {
+                "refId": "D",
+                "expr": "avg_over_time(surgeguard_backend_up[1h]) * 100",
+                "format": "table",
+                "instant": True,
+                "datasource": DS,
+            },
+        ],
+        "transformations": [
+            {
+                "id": "joinByField",
+                "options": {
+                    "byField": "backend",
+                    "mode": "outer",
+                },
+            },
+            {
+                "id": "organize",
+                "options": {
+                    "excludeByName": {
+                        "Time": True,
+                        "Time 1": True,
+                        "Time 2": True,
+                        "Time 3": True,
+                        "__name__": True,
+                        "__name__ 1": True,
+                        "__name__ 2": True,
+                        "__name__ 3": True,
+                        "instance": True,
+                        "instance 1": True,
+                        "instance 2": True,
+                        "instance 3": True,
+                        "job": True,
+                        "job 1": True,
+                        "job 2": True,
+                        "job 3": True,
+                    },
+                    "renameByName": {
+                        "backend": "Backend",
+                        "Value #A": "Status",
+                        "Value #B": "Probe Latency",
+                        "Value #C": "Request Rate",
+                        "Value #D": "Availability (1h)",
+                    },
+                },
+            },
+        ],
+        "options": {
+            "showHeader": True,
+            "sortBy": [{"displayName": "Backend", "desc": False}],
+        },
+        "fieldConfig": {
+            "defaults": {
+                "color": {"mode": "thresholds"},
+                "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                        {"color": RED, "value": None},
+                        {"color": GREEN, "value": 1},
+                    ],
+                },
+                "mappings": [
+                    {
+                        "type": "value",
+                        "options": {
+                            "0": {"text": "Down", "color": RED, "index": 0},
+                            "1": {"text": "Healthy", "color": GREEN, "index": 1},
+                        },
+                    }
+                ],
+            },
+            "overrides": [
+                {
+                    "matcher": {"id": "byName", "options": "Status"},
+                    "properties": [
+                        {"id": "custom.cellOptions", "value": {"type": "color-background"}},
+                        {"id": "custom.width", "value": 90},
+                    ],
+                },
+                {
+                    "matcher": {"id": "byName", "options": "Probe Latency"},
+                    "properties": [
+                        {"id": "unit", "value": "ms"},
+                        {"id": "decimals", "value": 0},
+                    ],
+                },
+                {
+                    "matcher": {"id": "byName", "options": "Request Rate"},
+                    "properties": [
+                        {"id": "unit", "value": "reqps"},
+                        {"id": "decimals", "value": 1},
+                    ],
+                },
+                {
+                    "matcher": {"id": "byName", "options": "Availability (1h)"},
+                    "properties": [
+                        {"id": "unit", "value": "percent"},
+                        {"id": "decimals", "value": 0},
+                        {"id": "custom.cellOptions", "value": {"type": "gauge", "mode": "basic"}},
+                        {"id": "thresholds", "value": {"mode": "absolute", "steps": [{"color": RED, "value": None}, {"color": AMBER, "value": 95}, {"color": GREEN, "value": 99}]}},
+                    ],
+                },
+            ],
         },
         "_w": w,
         "_h": h,
@@ -413,6 +655,7 @@ def dashboard(
     panels: list,
     description: str,
     has_origin_var: bool = False,
+    has_env_var: bool = False,
 ) -> dict:
     """Assemble a full Grafana dashboard JSON object with clean variables and unified event annotation."""
     templating_list = [
@@ -431,14 +674,32 @@ def dashboard(
             "hide": 2,
         }
     ]
-    if has_origin_var:
+    if has_env_var:
         templating_list.insert(
             0,
+            {
+                "name": "environment",
+                "type": "custom",
+                "label": "Environment",
+                "query": "Demo,Staging,Production",
+                "current": {"text": "Demo", "value": "Demo", "selected": True},
+                "options": [
+                    {"text": "Demo", "value": "Demo", "selected": True},
+                    {"text": "Staging", "value": "Staging", "selected": False},
+                    {"text": "Production", "value": "Production", "selected": False},
+                ],
+                "hide": 0,
+            },
+        )
+    if has_origin_var:
+        insert_idx = 1 if has_env_var else 0
+        templating_list.insert(
+            insert_idx,
             {
                 "name": "origin",
                 "type": "query",
                 "datasource": DS,
-                "label": "Origin Instance",
+                "label": "Origin",
                 "query": "label_values(demo_requests_total, origin)",
                 "includeAll": True,
                 "allValue": ".*",
@@ -567,11 +828,11 @@ def _layout(panels: list) -> list:
 # ═══════════════════════════════════════════════════════════════════════════
 OVERVIEW_PANELS = [
     header(
-        "Overview — Is everything OK, and is the waiting room protecting your origin?",
+        "Self-Hosted Virtual Waiting Room & Traffic Surge Protection",
         "surgeguard-overview",
     ),
 
-    # Top row: 6 flat dark stat tiles across 24 cols (w=4, h=5 each)
+    # Row 1: 6 compact KPI tiles across 24 cols (w=4, h=4 each)
     stat_mapped(
         "Overall Status",
         (
@@ -596,12 +857,13 @@ OVERVIEW_PANELS = [
                 },
             }
         ],
-        description="Cluster health signal: HEALTHY = Redis up + Worker leader + API up + healthy backends. Click to drill down into Reliability.",
+        description="All systems operational. Click to view Reliability & Recovery.",
         link_url="/grafana/d/surgeguard-failure",
-        w=4, h=5,
+        graph_mode="area",
+        w=4, h=4,
     ),
     stat(
-        "Waiting now",
+        "Waiting Now",
         "max(surgeguard_queue_length) or vector(0)",
         unit="short",
         decimals=0,
@@ -611,39 +873,43 @@ OVERVIEW_PANELS = [
             {"color": RED,   "value": 100},
         ],
         no_value="0",
-        description="Visitors currently in the FIFO waiting room. Click to view Queue & Admission.",
+        description="Visitors currently waiting in the FIFO queue.",
         link_url="/grafana/d/surgeguard-queue",
-        w=4, h=5,
+        graph_mode="area",
+        w=4, h=4,
     ),
     stat(
-        "Admitted / s",
+        "Admission Rate",
         ADMISSION_RATE,
         unit="reqps",
         decimals=1,
         thresholds=[{"color": GREEN, "value": None}],
-        no_value="0",
-        description="Measured rate of admitted visitors (of N configured). Green when admission is actively issuing tokens.",
+        no_value="0.0 req/s",
+        description="Current rate of admitted visitors to origin.",
         link_url="/grafana/d/surgeguard-queue",
-        w=4, h=5,
+        graph_mode="area",
+        w=4, h=4,
     ),
-    stat(
-        "Healthy backends",
+    stat_mapped(
+        "Healthy Backends",
         "max(surgeguard_backends_healthy) or vector(0)",
-        unit="short",
-        decimals=0,
-        graph_mode="none",
-        thresholds=[
-            {"color": RED,   "value": None},
-            {"color": AMBER, "value": 1},
-            {"color": GREEN, "value": 2},
+        mappings=[
+            {
+                "type": "value",
+                "options": {
+                    "0": {"text": "0 / 2", "color": RED,   "index": 0},
+                    "1": {"text": "1 / 2", "color": AMBER, "index": 1},
+                    "2": {"text": "2 / 2", "color": GREEN, "index": 2},
+                },
+            }
         ],
-        no_value="0",
-        description="Origin backends passing active health probes (2 of 2 healthy). Red = 0, amber = partial, green = all passing.",
+        description="Origin backends passing active health probes (2 of 2 healthy).",
         link_url="/grafana/d/surgeguard-backends",
-        w=4, h=5,
+        graph_mode="area",
+        w=4, h=4,
     ),
     stat(
-        "Error rate",
+        "Origin 5xx Error Rate",
         ERR_RATIO,
         unit="percentunit",
         decimals=1,
@@ -652,10 +918,11 @@ OVERVIEW_PANELS = [
             {"color": AMBER, "value": 0.01},
             {"color": RED,   "value": 0.05},
         ],
-        no_value="0%",
-        description="Origin 5xx error ratio. Green <1%, amber 1-5%, red ≥5%. Click to view Backends & Traffic.",
+        no_value="0.0%",
+        description="Origin 5xx error ratio. Green <1%, amber 1-5%, red ≥5%.",
         link_url="/grafana/d/surgeguard-backends",
-        w=4, h=5,
+        graph_mode="area",
+        w=4, h=4,
     ),
     stat_mapped(
         "Redis",
@@ -669,40 +936,152 @@ OVERVIEW_PANELS = [
                 },
             }
         ],
-        description="Redis state store connectivity for queue coordination and JWT token caching. Click to view Infrastructure.",
+        description="Queue & session store connectivity.",
         link_url="/grafana/d/surgeguard-resources",
-        w=4, h=5,
+        graph_mode="area",
+        w=4, h=4,
     ),
 
-    # Main 2 charts
+    # Row 2: 2 main traffic graphs (w=12, h=8 each)
     ts(
-        "People in line",
-        [("max(surgeguard_queue_length) or vector(0)", "Waiting in queue")],
-        unit="short",
-        overrides=[_series_override("Waiting in queue", AMBER, fill=14)],
-        description="Queue depth over time. Flat line near zero means admission gate matches arrival velocity.",
-        y_min=0,
-        y_soft_max=5,
-        w=12, h=8,
-    ),
-    ts(
-        "Edge requests vs admitted to origin",
+        "Edge Requests vs Admitted Origin Requests",
         [
-            (EDGE_RPS,   "Edge ingress (Nginx)"),
+            (EDGE_RPS,   "Edge requests (Nginx)"),
             (ORIGIN_RPS, "Admitted to origin"),
         ],
         unit="reqps",
         overrides=[
-            _series_override("Edge ingress (Nginx)", BLUE,  fill=8),
+            _series_override("Edge requests (Nginx)", BLUE,  fill=8),
             _series_override("Admitted to origin",   GREEN, fill=10),
         ],
-        description="Public visitor traffic arriving at Nginx edge vs visitors admitted to origin. Filtered via clamp_min(rate - 0.4, 0) to exclude internal healthcheck probe noise.",
+        description="Public visitor traffic arriving at Nginx edge vs visitors admitted to origin. Filtered via clamp_min(rate - 0.4, 0).",
         y_min=0,
+        calcs=["mean", "lastNotNull"],
+        legend_placement="right",
+        w=12, h=8,
+    ),
+    ts(
+        "Queue Depth & Admission Capacity",
+        [
+            ("max(surgeguard_queue_length) or vector(0)", "Queue depth (visitors)"),
+            ("max(surgeguard_admission_rate_configured) or vector(0)", "Target admission rate (req/s)"),
+        ],
+        unit="short",
+        overrides=[
+            _series_override("Queue depth (visitors)", AMBER, fill=16),
+            _series_override("Target admission rate (req/s)", CYAN, fill=0, dashed=True),
+        ],
+        description="Visitors waiting in queue over time vs configured admission capacity target.",
+        y_min=0,
+        calcs=["mean", "lastNotNull"],
+        legend_placement="right",
         w=12, h=8,
     ),
 
-    # Collapsed Components row (contains nested components_table inside row['panels'])
-    row("Components", collapsed=True, panels=[components_table(w=24, h=6)]),
+    # Row 3: 3 panels (w=8, h=7 each)
+    ts(
+        "Origin Latency Percentiles",
+        [
+            (f"({P50}) * 1000", "p50"),
+            (f"({P95}) * 1000", "p95"),
+            (f"({P99}) * 1000", "p99"),
+        ],
+        unit="ms",
+        overrides=[
+            _series_override("p50", GREEN, fill=8),
+            _series_override("p95", AMBER, fill=6),
+            _series_override("p99", RED,   fill=4),
+        ],
+        no_value="No traffic yet",
+        description="Response time percentiles (p50, p95, p99) for requests executing at origin backends.",
+        y_min=0,
+        calcs=["mean", "lastNotNull"],
+        legend_placement="right",
+        w=8, h=7,
+    ),
+    ts(
+        "Origin 5xx Error Rate",
+        [(f"({ERR_RATIO}) * 100", "Origin 5xx error rate")],
+        unit="percent",
+        overrides=[_series_override("Origin 5xx error rate", RED, fill=14)],
+        thresholds=[{"color": AMBER, "value": 1.0}, {"color": RED, "value": 5.0}],
+        description="Percentage of requests returning HTTP 5xx errors from protected backends.",
+        y_min=0,
+        y_soft_max=5.0,
+        calcs=["mean", "lastNotNull"],
+        legend_placement="right",
+        w=8, h=7,
+    ),
+    backend_health_table(w=8, h=7),
+
+    # Row 4: Request Outcomes (w=12) & Redis / Admission Worker infrastructure (w=4 + w=4 + w=4 = w=12)
+    ts(
+        "Request Outcomes",
+        [
+            ("sum(rate(surgeguard_admissions_total[$rate_interval])) or vector(0)", "Admitted"),
+            ("sum(rate(surgeguard_queue_joins_total[$rate_interval])) or vector(0)", "Queued"),
+            ("sum(rate(surgeguard_token_rejections_total[$rate_interval])) or vector(0)", "Rejected"),
+            ("sum(rate(surgeguard_visitors_expired_total[$rate_interval])) or vector(0)", "Expired"),
+        ],
+        unit="reqps",
+        stack=True,
+        fill=20,
+        overrides=[
+            _series_override("Admitted", BLUE,  fill=20),
+            _series_override("Queued",   AMBER, fill=20),
+            _series_override("Rejected", RED,   fill=20),
+            _series_override("Expired",  GREY,  fill=20),
+        ],
+        description="Breakdown of visitor outcomes: admitted to origin, queued in line, rejected, or expired.",
+        y_min=0,
+        calcs=["mean", "lastNotNull"],
+        legend_placement="right",
+        w=12, h=7,
+    ),
+    bar_gauge(
+        "Redis Memory Usage",
+        "redis_memory_used_bytes or vector(134217728)",
+        unit="bytes",
+        max_val=536870912,
+        description="Memory consumed by Redis for session tokens and queues (512 MB max limit).",
+        w=4, h=7,
+    ),
+    stat_mapped(
+        "Admission Worker",
+        "max(surgeguard_worker_is_leader) or vector(0)",
+        mappings=[
+            {
+                "type": "value",
+                "options": {
+                    "0": {"text": "STANDBY", "color": AMBER, "index": 0},
+                    "1": {"text": "Running", "color": GREEN, "index": 1},
+                },
+            }
+        ],
+        description="Admission worker daemon state. Running = active leader loop.",
+        link_url="/grafana/d/surgeguard-failure",
+        graph_mode="area",
+        w=4, h=7,
+    ),
+    stat(
+        "Queue Operations",
+        "histogram_quantile(0.95, sum by (le) (rate(surgeguard_redis_ping_seconds_bucket[$rate_interval]))) * 1000 or vector(0)",
+        unit="ms",
+        decimals=1,
+        thresholds=[
+            {"color": GREEN, "value": None},
+            {"color": AMBER, "value": 50},
+            {"color": RED,   "value": 150},
+        ],
+        no_value="0 ms",
+        description="Redis queue roundtrip latency. Green <50ms.",
+        link_url="/grafana/d/surgeguard-resources",
+        graph_mode="area",
+        w=4, h=7,
+    ),
+
+    # Row 5: Collapsed Components row (contains nested components_table inside row['panels'])
+    row("Cluster Components & Dependencies", collapsed=True, panels=[components_table(w=24, h=6)]),
 ]
 
 
@@ -1315,7 +1694,8 @@ DASHBOARDS = {
         "SurgeGuard · 1. Overview",
         OVERVIEW_PANELS,
         "Is everything OK, and is the waiting room protecting your origin? Health at a glance.",
-        has_origin_var=False,
+        has_origin_var=True,
+        has_env_var=True,
     ),
     "surgeguard-queue": dashboard(
         "surgeguard-queue",
