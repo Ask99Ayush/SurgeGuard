@@ -1,26 +1,26 @@
 output "load_balancer_dns_name" {
-  description = "Public DNS name of the load balancer (point your domain's CNAME/alias here)."
-  value       = module.alb.dns_name
+  description = "Public DNS name of the load balancer (when ALB is enabled)."
+  value       = var.enable_alb && length(module.alb) > 0 ? module.alb[0].dns_name : null
 }
 
 output "https_enabled" {
-  description = "Whether HTTPS listener on port 443 is active."
-  value       = local.https
+  description = "Whether HTTPS is active (direct EC2 self-signed TLS or ALB)."
+  value       = true
 }
 
 output "https_url" {
   description = "Public HTTPS URL for the SurgeGuard cluster."
-  value       = local.https ? "https://${var.domain_name != "" ? var.domain_name : module.alb.dns_name}" : null
+  value       = "https://${var.domain_name != "" ? var.domain_name : (var.ec2_public_ip != "" ? var.ec2_public_ip : (var.enable_alb && length(module.alb) > 0 ? module.alb[0].dns_name : "localhost"))}"
 }
 
 output "certificate_arn" {
-  description = "ACM Certificate ARN used by the ALB HTTPS listener."
+  description = "ACM Certificate ARN used by the ALB HTTPS listener (when ALB is enabled)."
   value       = local.effective_certificate_arn != "" ? local.effective_certificate_arn : null
 }
 
 output "alb_target_group_arn" {
-  description = "Target group ARN forwarding to SurgeGuard protected edge port 8088."
-  value       = module.alb.target_group_arn
+  description = "Target group ARN forwarding to SurgeGuard protected edge port 8088 (when ALB is enabled)."
+  value       = var.enable_alb && length(module.alb) > 0 ? module.alb[0].target_group_arn : null
 }
 
 output "app_security_group_id" {

@@ -2,8 +2,19 @@ data "aws_availability_zones" "available" {
   state = "available"
 }
 
-data "aws_ssm_parameter" "ami" {
-  name = var.ami_ssm_parameter
+data "aws_ami" "amazon_linux" {
+  most_recent = true
+  owners      = ["amazon"]
+
+  filter {
+    name   = "name"
+    values = ["al2023-ami-2023.*-x86_64"]
+  }
+
+  filter {
+    name   = "state"
+    values = ["available"]
+  }
 }
 
 data "aws_caller_identity" "current" {}
@@ -19,10 +30,9 @@ data "aws_subnets" "existing" {
 }
 
 locals {
-  name       = var.name_prefix != "" ? var.name_prefix : "${var.project_name}-${var.environment}"
-  ssm_prefix = var.ssm_parameter_prefix != "" ? var.ssm_parameter_prefix : "/${local.name}/env"
-  az_count   = min(length(var.public_subnet_cidrs), length(var.private_subnet_cidrs))
-  azs        = slice(data.aws_availability_zones.available.names, 0, local.az_count)
+  name     = var.name_prefix != "" ? var.name_prefix : "${var.project_name}-${var.environment}"
+  az_count = min(length(var.public_subnet_cidrs), length(var.private_subnet_cidrs))
+  azs      = slice(data.aws_availability_zones.available.names, 0, local.az_count)
 
   effective_vpc_id = var.existing_vpc_id != "" ? var.existing_vpc_id : (length(module.network) > 0 ? module.network[0].vpc_id : "")
 

@@ -15,11 +15,16 @@ cd /opt/surgeguard
 if [ ! -d app ]; then git clone --depth 1 --branch "${app_version}" "${app_source_url}" app; fi
 cd app
 
-# Build .env from Parameter Store (one SecureString per KEY under the prefix).
-umask 077
-aws ssm get-parameters-by-path --region "${aws_region}" --path "${ssm_parameter_prefix}" \
-  --with-decryption --recursive --output json \
-  | jq -r '.Parameters[] | "\(.Name | split("/") | last)=\(.Value | @sh)"' > .env
-grep -q '^APP_ENV=' .env || { echo "Parameter Store prefix ${ssm_parameter_prefix} is empty" >&2; exit 1; }
+# Secrets & configuration are loaded from the EC2-local .env file (chmod 600).
+# Production secrets are never stored in SSM, Terraform state, or user data.
+if [ -f .env ]; then
+  chmod 600 .env
+else
+  echo "[i] NOTICE: .env not yet present in /opt/surgeguard/app."
+  echo "[i] Create .env from template with restrictive permissions (chmod 600 .env) before running docker compose."
+fi
 
-docker compose up -d --build
+if [ -f .env ]; then
+  docker compose up -d --build
+fi
+

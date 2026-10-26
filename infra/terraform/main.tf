@@ -1,5 +1,5 @@
 module "network" {
-  count  = var.existing_vpc_id == "" ? 1 : 0
+  count  = var.enable_vpc && var.existing_vpc_id == "" ? 1 : 0
   source = "./modules/network"
 
   name                 = local.name
@@ -23,10 +23,12 @@ module "security" {
   ssh_port              = var.ssh_port
   enable_direct_ingress = var.enable_direct_ingress
   enable_ssh            = var.enable_ssh
+  enable_alb            = var.enable_alb
   https                 = local.https
 }
 
 module "alb" {
+  count  = var.enable_alb ? 1 : 0
   source = "./modules/alb"
 
   name                = local.name
@@ -40,32 +42,43 @@ module "alb" {
   certificate_arn     = local.effective_certificate_arn
 }
 
-# Attach existing running EC2 instance directly to the ALB target group
+# Attach existing running EC2 instance directly to the ALB target group (only when ALB is enabled)
 resource "aws_lb_target_group_attachment" "existing_ec2" {
-  count            = var.existing_instance_id != "" ? 1 : 0
-  target_group_arn = module.alb.target_group_arn
+  count            = var.enable_alb && var.existing_instance_id != "" ? 1 : 0
+  target_group_arn = module.alb[0].target_group_arn
   target_id        = var.existing_instance_id
   port             = var.app_port
 }
 
-# Auto Scaling Group deployment (used for greenfield or when no existing instance is specified)
+# Attach the Terraform-managed security group directly to the existing running EC2 instance
+data "aws_instance" "existing" {
+  count       = var.existing_instance_id != "" ? 1 : 0
+  instance_id = var.existing_instance_id
+}
+
+resource "aws_network_interface_sg_attachment" "existing" {
+  count                = var.existing_instance_id != "" ? 1 : 0
+  security_group_id    = module.security.app_security_group_id
+  network_interface_id = data.aws_instance.existing[0].network_interface_id
+}
+
+# Auto Scaling Group deployment (used for greenfield or when ASG mode is explicitly enabled)
 module "compute" {
-  count  = var.existing_instance_id == "" ? 1 : 0
+  count  = var.enable_asg && var.existing_instance_id == "" ? 1 : 0
   source = "./modules/compute"
 
-  name                 = local.name
-  ami_id               = data.aws_ssm_parameter.ami.value
-  instance_type        = var.instance_type
-  root_volume_size_gb  = var.root_volume_size_gb
-  private_subnet_ids   = local.effective_private_subnets
-  security_group_id    = module.security.app_security_group_id
-  target_group_arn     = module.alb.target_group_arn
-  desired_capacity     = var.desired_capacity
-  min_capacity         = var.min_capacity
-  max_capacity         = var.max_capacity
-  app_source_url       = var.app_source_url
-  app_version          = var.app_version
-  ssm_parameter_prefix = local.ssm_prefix
-  ssm_parameter_arn    = "arn:${data.aws_partition.current.partition}:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter${local.ssm_prefix}"
-  aws_region           = var.aws_region
+  name                = local.name
+  ami_id              = data.aws_ami.amazon_linux.id
+  instance_type       = var.instance_type
+  root_volume_size_gb = var.root_volume_size_gb
+  private_subnet_ids  = local.effective_private_subnets
+  security_group_id   = module.security.app_security_group_id
+  target_group_arn    = var.enable_alb ? module.alb[0].target_group_arn : ""
+  desired_capacity    = var.desired_capacity
+  min_capacity        = var.min_capacity
+  max_capacity        = var.max_capacity
+  app_source_url      = var.app_source_url
+  app_version         = var.app_version
+  aws_region          = var.aws_region
 }
+

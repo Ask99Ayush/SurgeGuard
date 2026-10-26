@@ -7,14 +7,15 @@ variable "instance_type" { type = string }
 variable "root_volume_size_gb" { type = number }
 variable "private_subnet_ids" { type = list(string) }
 variable "security_group_id" { type = string }
-variable "target_group_arn" { type = string }
+variable "target_group_arn" {
+  type    = string
+  default = ""
+}
 variable "desired_capacity" { type = number }
 variable "min_capacity" { type = number }
 variable "max_capacity" { type = number }
 variable "app_source_url" { type = string }
 variable "app_version" { type = string }
-variable "ssm_parameter_prefix" { type = string }
-variable "ssm_parameter_arn" { type = string }
 variable "aws_region" { type = string }
 
 data "aws_iam_policy_document" "assume" {
@@ -30,36 +31,6 @@ data "aws_iam_policy_document" "assume" {
 resource "aws_iam_role" "host" {
   name_prefix        = substr("${var.name}-host-", 0, 38)
   assume_role_policy = data.aws_iam_policy_document.assume.json
-}
-
-# Session Manager instead of SSH: no inbound port 22, no key pairs.
-resource "aws_iam_role_policy_attachment" "ssm_core" {
-  role       = aws_iam_role.host.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
-}
-
-data "aws_iam_policy_document" "read_env" {
-  statement {
-    sid       = "ReadRuntimeConfig"
-    actions   = ["ssm:GetParametersByPath", "ssm:GetParameters", "ssm:GetParameter"]
-    resources = [var.ssm_parameter_arn, "${var.ssm_parameter_arn}/*"]
-  }
-  statement {
-    sid       = "DecryptSecureStrings"
-    actions   = ["kms:Decrypt"]
-    resources = ["*"]
-    condition {
-      test     = "StringEquals"
-      variable = "kms:ViaService"
-      values   = ["ssm.${var.aws_region}.amazonaws.com"]
-    }
-  }
-}
-
-resource "aws_iam_role_policy" "read_env" {
-  name   = "read-runtime-config"
-  role   = aws_iam_role.host.id
-  policy = data.aws_iam_policy_document.read_env.json
 }
 
 resource "aws_iam_instance_profile" "host" {
@@ -91,12 +62,11 @@ resource "aws_launch_template" "host" {
     }
   }
 
-  # No secrets in user data: values are fetched from Parameter Store at boot.
+  # Deploy using local .env on the EC2 host; no secrets in Terraform or user data.
   user_data = base64encode(templatefile("${path.module}/user-data.sh.tftpl", {
-    app_source_url       = var.app_source_url
-    app_version          = var.app_version
-    ssm_parameter_prefix = var.ssm_parameter_prefix
-    aws_region           = var.aws_region
+    app_source_url = var.app_source_url
+    app_version    = var.app_version
+    aws_region     = var.aws_region
   }))
 
   tag_specifications {
@@ -111,8 +81,8 @@ resource "aws_autoscaling_group" "host" {
   desired_capacity          = var.desired_capacity
   min_size                  = var.min_capacity
   max_size                  = var.max_capacity
-  target_group_arns         = [var.target_group_arn]
-  health_check_type         = "ELB"
+  target_group_arns         = var.target_group_arn != "" ? [var.target_group_arn] : []
+  health_check_type         = var.target_group_arn != "" ? "ELB" : "EC2"
   health_check_grace_period = 300
 
   launch_template {

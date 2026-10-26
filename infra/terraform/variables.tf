@@ -164,10 +164,22 @@ variable "instance_type" {
   }
 }
 
-variable "ami_ssm_parameter" {
-  description = "Public SSM parameter that resolves to the AMI id (looked up at plan time, never hardcoded)."
-  type        = string
-  default     = "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64"
+variable "enable_alb" {
+  description = "Enable Application Load Balancer creation (false avoids paid ALB infrastructure and relies on direct EC2 Nginx TLS termination)."
+  type        = bool
+  default     = false
+}
+
+variable "enable_asg" {
+  description = "Enable Auto Scaling Group creation (false reuses existing EC2 instance without creating extra hosts)."
+  type        = bool
+  default     = false
+}
+
+variable "enable_vpc" {
+  description = "Enable VPC and subnet creation (false when existing_vpc_id is provided)."
+  type        = bool
+  default     = false
 }
 
 variable "root_volume_size_gb" {
@@ -203,7 +215,7 @@ variable "max_capacity" {
 }
 
 variable "use_shared_redis" {
-  description = "Set true when REDIS_URL in Parameter Store points to a shared Redis (e.g. ElastiCache, not created here). Required for more than one host."
+  description = "Set true when REDIS_URL points to a shared Redis (e.g. ElastiCache, not created here). Required for more than one host."
   type        = bool
   default     = false
 }
@@ -231,13 +243,13 @@ variable "alb_deletion_protection" {
 }
 
 variable "domain_name" {
-  description = "Optional DNS name served by the load balancer (DNS records are not managed here)."
+  description = "DNS domain name for SurgeGuard (e.g. surgeguard-innotech.duckdns.org)."
   type        = string
-  default     = ""
+  default     = "surgeguard-innotech.duckdns.org"
 }
 
 variable "certificate_arn" {
-  description = "Optional ACM certificate ARN. When set, HTTPS is served and HTTP redirects to HTTPS."
+  description = "Optional ACM certificate ARN (used only if ALB is enabled). Self-signed TLS on EC2 does not require ACM."
   type        = string
   default     = ""
   validation {
@@ -262,14 +274,9 @@ variable "app_version" {
   default     = "main"
 }
 
-variable "ssm_parameter_prefix" {
-  description = "SSM Parameter Store path holding the runtime .env values (one SecureString per key). Defaults to /<name>/env."
-  type        = string
-  default     = ""
-}
-
 variable "tags" {
   description = "Extra tags applied to every resource."
   type        = map(string)
   default     = {}
 }
+
