@@ -251,57 +251,105 @@ export function TheGate({
       <section
         aria-label="The Gate — live flow diagram"
         aria-describedby="gate-desc"
-        className="relative overflow-hidden rounded-2xl border border-border bg-surface shadow-[var(--shadow-pop)]"
+        className="relative overflow-hidden rounded-2xl border border-border bg-surface/90 shadow-[var(--shadow-pop)] backdrop-blur-xs"
       >
         <p id="gate-desc" className="sr-only">{ariaDesc}</p>
-        {/* Quiet-state resting message */}
-        {isQuiet && !isPaused && (
-          <div className="absolute inset-x-0 top-0 z-10 flex items-center justify-center px-4 pt-3">
-            <span className="rounded-full border border-success/25 bg-success/10 px-3 py-1 text-xs font-medium text-success">
-              Quiet right now · Everything is ready
-            </span>
-          </div>
-        )}
 
-        <div className="grid grid-cols-[1fr_auto_1fr] items-stretch gap-0 divide-x divide-border">
+        {/* Dedicated Status Header Bar */}
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/80 bg-surface-elevated/40 px-5 py-3">
+          <div className="flex items-center gap-2.5">
+            <span className="relative flex size-2">
+              <span
+                className={cn(
+                  "absolute inline-flex size-full rounded-full opacity-75",
+                  isPaused ? "bg-warning animate-ping" : isQuiet ? "bg-success" : "bg-chart-cyan animate-ping",
+                )}
+              />
+              <span
+                className={cn(
+                  "relative inline-flex size-2 rounded-full",
+                  isPaused ? "bg-warning" : isQuiet ? "bg-success" : "bg-chart-cyan",
+                )}
+              />
+            </span>
+            <span className="text-xs font-semibold uppercase tracking-wider text-muted">Traffic Admission Gate</span>
+            <span className="hidden sm:inline-block text-[11px] text-subtle font-mono">· FIFO / HMAC-SHA256 Token Pipeline</span>
+          </div>
+          <div>
+            {isPaused ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-warning/30 bg-warning/10 px-3 py-1 text-xs font-medium text-warning">
+                <span className="size-1.5 rounded-full bg-warning" />
+                Admission Paused · Traffic held safely
+              </span>
+            ) : isQuiet ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-success/30 bg-success/10 px-3 py-1 text-xs font-medium text-success">
+                <span className="size-1.5 rounded-full bg-success" />
+                Quiet right now · Everything is ready
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-chart-cyan/30 bg-chart-cyan/10 px-3 py-1 text-xs font-medium text-chart-cyan">
+                <span className="size-1.5 rounded-full bg-chart-cyan animate-ping" />
+                Active Admission · {measuredRate.toFixed(1)} req/s
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] items-stretch gap-0 divide-y md:divide-y-0 md:divide-x divide-border">
           {/* ── STAGE 1: WAITING ROOM ── */}
           <button
             type="button"
             onClick={() => setDrawer("waiting")}
-            className={cn("flex flex-col gap-3 p-5 text-left", stageBtn)}
+            className={cn("flex flex-col justify-between gap-4 p-5 text-left transition-colors hover:bg-surface-elevated/30", stageBtn)}
             aria-label="Open waiting room details"
           >
-            <div className="flex items-center gap-2">
-              <Users className="size-4 text-muted" aria-hidden />
-              <span className="text-xs font-medium text-muted uppercase tracking-wide">Waiting Room</span>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="flex size-7 items-center justify-center rounded-lg bg-surface-elevated text-muted">
+                  <Users className="size-4" aria-hidden />
+                </div>
+                <span className="text-xs font-semibold uppercase tracking-wider text-muted">Waiting Room</span>
+              </div>
+              <span className="rounded-full bg-surface-elevated px-2 py-0.5 text-[10px] font-medium text-subtle">Stage 1</span>
             </div>
-            <div className="flex-1">
-              <p className="text-3xl font-semibold tabular-nums tracking-[-0.04em] text-foreground">
-                {overview?.queue.waiting ?? "—"}
-              </p>
+
+            <div className="my-1">
+              <div className="flex items-baseline gap-2">
+                <p className="font-mono text-3xl font-bold tabular-nums tracking-tight text-foreground">
+                  {overview?.queue.waiting ?? "0"}
+                </p>
+                <span className="text-xs text-muted">visitors</span>
+              </div>
               <p className="mt-1 text-xs text-subtle">
                 {overview
                   ? overview.queue.waiting === 0
-                    ? "Queue is empty"
-                    : `${overview.queue.waiting} in FIFO queue`
-                  : "Loading…"}
+                    ? "Queue is empty · Instant admission"
+                    : `${overview.queue.waiting} waiting in FIFO queue`
+                  : "Connecting…"}
               </p>
             </div>
-            {/* Filling bar */}
-            <div className="h-1.5 overflow-hidden rounded-full bg-surface-elevated">
-              <div
-                className={cn(
-                  "h-full rounded-full transition-all duration-700",
-                  overview && overview.queue.waiting > 0 ? "bg-warning" : "bg-success/40",
-                )}
-                style={{
-                  width: overview
-                    ? overview.queue.waiting > 0
-                      ? `${Math.min(100, (overview.queue.waiting / Math.max(overview.queue.waiting, 100)) * 100)}%`
-                      : "8%"
-                    : "0%",
-                }}
-              />
+
+            {/* Queue fill capacity indicator */}
+            <div className="space-y-1.5">
+              <div className="h-1.5 overflow-hidden rounded-full bg-surface-elevated">
+                <div
+                  className={cn(
+                    "h-full rounded-full transition-all duration-700",
+                    overview && overview.queue.waiting > 0 ? "bg-warning" : "bg-success/50",
+                  )}
+                  style={{
+                    width: overview
+                      ? overview.queue.waiting > 0
+                        ? `${Math.min(100, Math.max(8, (overview.queue.waiting / 50) * 100))}%`
+                        : "6%"
+                      : "0%",
+                  }}
+                />
+              </div>
+              <div className="flex items-center justify-between text-[10px] text-subtle">
+                <span>FIFO Buffer</span>
+                <span className="text-accent group-hover:underline">Click for details →</span>
+              </div>
             </div>
           </button>
 
@@ -310,56 +358,90 @@ export function TheGate({
             type="button"
             onClick={() => setDrawer("gate")}
             aria-label="Open gate admission details"
-            className={cn("relative flex w-[140px] flex-col items-center justify-center gap-2 overflow-hidden px-4 py-5 sm:w-[180px]", stageBtn)}
+            className={cn(
+              "relative flex flex-col items-center justify-between gap-3 overflow-hidden px-4 py-5 md:w-[220px] transition-colors hover:bg-surface-elevated/30",
+              stageBtn,
+            )}
           >
-            {/* Animated particle track */}
-            <svg
-              aria-hidden
-              viewBox="0 0 180 12"
-              className="absolute inset-x-0 top-1/2 -translate-y-1/2 w-full overflow-visible"
-              preserveAspectRatio="none"
-            >
-              {/* Track line */}
-              <line x1="0" y1="6" x2="180" y2="6" stroke="var(--border)" strokeWidth="1" strokeDasharray="4 4" />
-              {/* Particles */}
-              {particles.current.map((p) => (
-                <circle
-                  key={p.id}
-                  cx={p.x * 1.8}
-                  cy={6}
-                  r={3}
-                  fill="var(--accent)"
-                  opacity={p.opacity}
-                />
-              ))}
-            </svg>
-
-            {/* Valve gauge */}
-            <div className="relative z-10 flex flex-col items-center gap-1.5 bg-surface px-2">
-              <div className="relative flex size-14 items-center justify-center rounded-full border-2 border-border bg-surface-elevated shadow-[var(--shadow-key)]">
-                {/* Arc fill */}
-                <svg aria-hidden viewBox="0 0 56 56" className="absolute inset-0 size-full -rotate-90">
-                  <circle cx="28" cy="28" r="22" fill="none" stroke="var(--border)" strokeWidth="4" />
-                  <circle
-                    cx="28"
-                    cy="28"
-                    r="22"
-                    fill="none"
-                    stroke={isPaused ? "var(--warning)" : "var(--accent)"}
-                    strokeWidth="4"
-                    strokeLinecap="round"
-                    strokeDasharray={`${valvePct * 138.2} 138.2`}
-                    className="transition-all duration-700"
-                  />
-                </svg>
-                <span className="relative text-[10px] font-semibold tabular-nums text-foreground">
-                  {isPaused ? "OFF" : `${Math.round(valvePct * 100)}%`}
-                </span>
-              </div>
-              <span className="text-[10px] font-medium text-muted uppercase tracking-widest">Gate</span>
-              <span className="text-xs font-semibold tabular-nums text-foreground">
-                {isPaused ? "Paused" : `${measuredRate.toFixed(1)}/${configuredRate}/s`}
+            <div className="flex w-full items-center justify-center">
+              <span className="rounded-full bg-surface-elevated px-2 py-0.5 text-[10px] font-medium text-subtle">
+                Stage 2 · Admission Valve
               </span>
+            </div>
+
+            {/* Animated particle track across the stage */}
+            <div className="relative flex w-full items-center justify-center py-2">
+              <svg
+                aria-hidden
+                viewBox="0 0 220 28"
+                className="pointer-events-none absolute inset-x-0 top-1/2 -translate-y-1/2 w-full overflow-visible"
+                preserveAspectRatio="none"
+              >
+                {/* Track line (entering from left and exiting to right) */}
+                <line x1="0" y1="14" x2="220" y2="14" stroke="var(--border)" strokeWidth="1.5" strokeDasharray="3 3" opacity="0.6" />
+                {/* Particles moving across */}
+                {particles.current.map((p) => (
+                  <g key={p.id}>
+                    <circle
+                      cx={p.x * 2.2}
+                      cy={14}
+                      r={3.5}
+                      fill="var(--chart-cyan)"
+                      opacity={p.opacity * 0.5}
+                    />
+                    <circle
+                      cx={p.x * 2.2}
+                      cy={14}
+                      r={1.8}
+                      fill="var(--foreground)"
+                      opacity={p.opacity}
+                    />
+                  </g>
+                ))}
+              </svg>
+
+              {/* Valve Circular Gauge */}
+              <div className="relative z-10 flex size-18 items-center justify-center rounded-full border border-border bg-surface shadow-[var(--shadow-key)]">
+                <svg aria-hidden viewBox="0 0 64 64" className="absolute inset-0 size-full -rotate-90">
+                  {/* Background track circle */}
+                  <circle cx="32" cy="32" r="25" fill="none" stroke="var(--border)" strokeWidth="3.5" />
+                  {/* Active arc fill: Only rendered when valvePct > 0 to avoid zero-pct dot artifact */}
+                  {valvePct > 0 && (
+                    <circle
+                      cx="32"
+                      cy="32"
+                      r="25"
+                      fill="none"
+                      stroke={isPaused ? "var(--warning)" : "var(--chart-cyan)"}
+                      strokeWidth="3.5"
+                      strokeLinecap={valvePct > 0.03 ? "round" : "butt"}
+                      strokeDasharray={`${valvePct * 157.08} 157.08`}
+                      className="transition-all duration-500"
+                    />
+                  )}
+                </svg>
+                <div className="relative z-10 flex flex-col items-center">
+                  <span
+                    className={cn(
+                      "font-mono text-xs font-bold tabular-nums",
+                      isPaused ? "text-warning" : valvePct > 0 ? "text-chart-cyan" : "text-muted",
+                    )}
+                  >
+                    {isPaused ? "OFF" : `${Math.round(valvePct * 100)}%`}
+                  </span>
+                  <span className="text-[9px] font-semibold tracking-wider uppercase text-subtle">
+                    {isPaused ? "PAUSED" : valvePct > 0 ? "FLOW" : "IDLE"}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Velocity readout */}
+            <div className="flex flex-col items-center text-center">
+              <span className="font-mono text-xs font-semibold tabular-nums text-foreground">
+                {isPaused ? "Paused" : `${measuredRate.toFixed(1)} / ${configuredRate}/s`}
+              </span>
+              <span className="text-[10px] text-accent group-hover:underline">Valve details →</span>
             </div>
           </button>
 
@@ -367,50 +449,84 @@ export function TheGate({
           <button
             type="button"
             onClick={() => setDrawer("site")}
-            className={cn("flex flex-col gap-3 p-5 text-left", stageBtn)}
+            className={cn("flex flex-col justify-between gap-4 p-5 text-left transition-colors hover:bg-surface-elevated/30", stageBtn)}
             aria-label="Open backend health details"
           >
-            <div className="flex items-center gap-2">
-              <Server className="size-4 text-muted" aria-hidden />
-              <span className="text-xs font-medium text-muted uppercase tracking-wide">Your Website</span>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="flex size-7 items-center justify-center rounded-lg bg-surface-elevated text-muted">
+                  <Server className="size-4" aria-hidden />
+                </div>
+                <span className="text-xs font-semibold uppercase tracking-wider text-muted">Your Website</span>
+              </div>
+              <span className="rounded-full bg-surface-elevated px-2 py-0.5 text-[10px] font-medium text-subtle">Stage 3</span>
             </div>
-            <div className="flex-1">
-              <p className={cn("text-3xl font-semibold tabular-nums tracking-[-0.04em]",
-                overview && overview.backends.healthy === 0 ? "text-danger"
-                  : overview && overview.backends.healthy < (overview.backends.total) ? "text-warning"
-                    : "text-foreground",
-              )}>
-                {overview ? `${overview.backends.healthy}/${overview.backends.total}` : "—"}
+
+            <div className="my-1">
+              <div className="flex items-baseline gap-2">
+                <p
+                  className={cn(
+                    "font-mono text-3xl font-bold tabular-nums tracking-tight",
+                    overview && overview.backends.healthy === 0
+                      ? "text-danger"
+                      : overview && overview.backends.healthy < overview.backends.total
+                        ? "text-warning"
+                        : "text-foreground",
+                  )}
+                >
+                  {overview ? `${overview.backends.healthy}/${overview.backends.total}` : "—"}
+                </p>
+                <span className="text-xs text-muted">backends healthy</span>
+              </div>
+              <p className="mt-1 text-xs text-subtle">
+                {overview && overview.backends.healthy === overview.backends.total
+                  ? "All upstream origin nodes healthy"
+                  : `${(overview?.backends.total ?? 0) - (overview?.backends.healthy ?? 0)} node(s) degraded`}
               </p>
-              <p className="mt-1 text-xs text-subtle">backends healthy</p>
             </div>
+
             {/* Backend pills */}
-            <div className="flex flex-wrap gap-1.5">
-              {backendsItems.length > 0
-                ? backendsItems.map((b) => (
-                    <BackendPill key={b.name} name={b.name} healthy={b.healthy} />
-                  ))
-                : overview
-                  ? Array.from({ length: overview.backends.total }, (_, i) => (
-                      <BackendPill
-                        key={i}
-                        name={`origin-${i + 1}`}
-                        healthy={i < overview.backends.healthy}
-                      />
+            <div className="space-y-1.5">
+              <div className="flex flex-wrap items-center gap-1.5">
+                {backendsItems.length > 0
+                  ? backendsItems.map((b) => (
+                      <BackendPill key={b.name} name={b.name} healthy={b.healthy} />
                     ))
-                  : <span className="text-xs text-subtle">Loading…</span>
-              }
+                  : overview
+                    ? Array.from({ length: overview.backends.total }, (_, i) => (
+                        <BackendPill
+                          key={i}
+                          name={`demo-${i + 1}`}
+                          healthy={i < overview.backends.healthy}
+                        />
+                      ))
+                    : <span className="text-xs text-subtle">Connecting…</span>
+                }
+              </div>
+              <div className="flex items-center justify-between text-[10px] text-subtle">
+                <span>Protected Origin</span>
+                <span className="text-accent group-hover:underline">Click for details →</span>
+              </div>
             </div>
           </button>
         </div>
 
-        {/* Flow arrows overlay (decorative) */}
-        <div className="flex items-center justify-between border-t border-border px-5 py-2 text-[10px] text-subtle">
-          <span className="flex items-center gap-1">
-            <Clock className="size-3" aria-hidden /> FIFO queue → signed token
-          </span>
-          <span>Nginx auth_request validates token →</span>
-          <span>Origin receives only admitted requests</span>
+        {/* Pipeline sequence footer */}
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/80 bg-surface-elevated/20 px-5 py-2.5 text-[11px] text-muted">
+          <div className="flex items-center gap-1.5">
+            <Clock className="size-3 text-muted" aria-hidden />
+            <span>1. FIFO Queue holds surge</span>
+          </div>
+          <span className="hidden md:inline text-subtle font-mono">──▶</span>
+          <div className="flex items-center gap-1.5">
+            <span className="size-1.5 rounded-full bg-chart-cyan" />
+            <span>2. Gate issues signed HMAC token</span>
+          </div>
+          <span className="hidden md:inline text-subtle font-mono">──▶</span>
+          <div className="flex items-center gap-1.5">
+            <span className="size-1.5 rounded-full bg-success" />
+            <span>3. Nginx auth_request validates &amp; proxies</span>
+          </div>
         </div>
       </section>
 
