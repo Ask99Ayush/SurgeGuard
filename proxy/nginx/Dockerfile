@@ -8,7 +8,7 @@ RUN apk add --no-cache openssl && \
       -keyout /etc/nginx/certs/surgeguard.key \
       -out /etc/nginx/certs/surgeguard.crt \
       -subj "/CN=surgeguard-innotech.duckdns.org" \
-      -addext "subjectAltName=DNS:surgeguard-innotech.duckdns.org,DNS:localhost,IP:127.0.0.1" && \
+      -addext "subjectAltName=DNS:surgeguard-innotech.duckdns.org,DNS:surgeguard-protected.duckdns.org,DNS:surgeguard-direct.duckdns.org,DNS:surgeguard-admin.duckdns.org,DNS:surgeguard-monitor.duckdns.org,DNS:localhost,IP:127.0.0.1" && \
     chmod 644 /etc/nginx/certs/surgeguard.crt && \
     chmod 640 /etc/nginx/certs/surgeguard.key && \
     chown -R 101:101 /etc/nginx/certs

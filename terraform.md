@@ -147,19 +147,37 @@ sed -i 's|^PUBLIC_SITE_URL=.*|PUBLIC_SITE_URL=https://surgeguard-innotech.duckdn
 
 ---
 
+### 5 DuckDNS Domains Architecture
+
+SurgeGuard serves 5 distinct entry points via Nginx Server Name Indication (SNI) on standard HTTPS (port 443), eliminating the need for non-standard ports:
+
+| Domain | Surface | Target Upstream | Key Purpose |
+| :--- | :--- | :--- | :--- |
+| **`surgeguard-innotech.duckdns.org`** | Main Control Center | `sg_frontend` (Port 3000) | Landing page, architectural breakdown, features & showcase |
+| **`surgeguard-protected.duckdns.org`** | Protected Gateway Demo | `origin_pool` via `auth_request` | High-stakes University Exam Results portal behind fair FIFO waiting room |
+| **`surgeguard-direct.duckdns.org`** | Unprotected Direct Demo | `origin_direct` (Port 8000) | Deliberately fragile baseline origin; returns 503 Overloaded under surge |
+| **`surgeguard-admin.duckdns.org`** | Admin Console | `sg_frontend` (Port 3000) | Real-time queue visualizer, token capacity & admission controls |
+| **`surgeguard-monitor.duckdns.org`** | Observability Dashboards | `sg_grafana` (Port 3000) | Live Grafana SRE metrics & Prometheus telemetry dashboards |
+
+---
+
 ## 6. Self-Signed TLS Certificate with SAN
 
-SurgeGuard terminates HTTPS at the Nginx reverse proxy using a 2048-bit RSA self-signed certificate that includes **Subject Alternative Names (SAN)** for the domain and public IP.
+SurgeGuard terminates HTTPS at the Nginx reverse proxy using a single 2048-bit RSA self-signed certificate that includes **Subject Alternative Names (SAN)** for all 5 DuckDNS domains, localhost, and the public IP.
 
 ### Certificate Attributes
 - **Common Name (CN):** `surgeguard-innotech.duckdns.org`
 - **SAN DNS 1:** `surgeguard-innotech.duckdns.org`
-- **SAN DNS 2:** `localhost`
+- **SAN DNS 2:** `surgeguard-protected.duckdns.org`
+- **SAN DNS 3:** `surgeguard-direct.duckdns.org`
+- **SAN DNS 4:** `surgeguard-admin.duckdns.org`
+- **SAN DNS 5:** `surgeguard-monitor.duckdns.org`
+- **SAN DNS 6:** `localhost`
 - **SAN IP 1:** `3.109.184.177`
 - **SAN IP 2:** `127.0.0.1`
 - **Signature Algorithm:** `SHA256WithRSA`
 - **Validity:** 365 days
-- **Host Location:** `/opt/surgeguard/app/certs/surgeguard.crt` and `surgeguard.key`
+- **Host Location:** `/root/SurgeGuard/certs/surgeguard.crt` and `surgeguard.key`
 - **Nginx Container Path:** `/etc/nginx/certs/surgeguard.crt` and `surgeguard.key`
 
 ### Generation Script

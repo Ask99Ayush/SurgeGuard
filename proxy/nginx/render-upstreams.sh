@@ -51,5 +51,11 @@ upstream sg_frontend {
     server ${NGINX_FRONTEND_UPSTREAM} resolve max_fails=0;
     keepalive 16;
 }
+
+upstream sg_grafana {
+    zone sg_grafana 64k;
+    server grafana:3000 resolve max_fails=0;
+    keepalive 16;
+}
 EOF
 echo "render-upstreams: wrote $out"

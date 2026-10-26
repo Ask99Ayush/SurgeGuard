@@ -51,14 +51,23 @@ export function resolveServiceUrl(
 }
 
 export function getProtectedSiteUrl(configured?: string | null): string {
+  if (typeof window !== "undefined" && window.location.hostname.includes("duckdns.org")) {
+    return "https://surgeguard-protected.duckdns.org";
+  }
   return resolveServiceUrl(configured, 8088, 8088);
 }
 
 export function getDirectOriginUrl(configured?: string | null): string {
+  if (typeof window !== "undefined" && window.location.hostname.includes("duckdns.org")) {
+    return "https://surgeguard-direct.duckdns.org";
+  }
   return resolveServiceUrl(configured, 8081, 8081);
 }
 
 export function getGrafanaBaseUrl(configured?: string | null): string {
+  if (typeof window !== "undefined" && window.location.hostname.includes("duckdns.org")) {
+    return "https://surgeguard-monitor.duckdns.org";
+  }
   return resolveServiceUrl(configured, 3001, 3001);
 }
 

@@ -14,7 +14,7 @@ proxy_cache_path /var/cache/nginx/sg levels=1:2 keys_zone=sg_static:10m max_size
 # HTTP entry point (port 8080): Container health checks and 301 redirect to HTTPS
 # =============================================================================================
 server {
-    listen 8080;
+    listen 8080 default_server;
     server_name _;
 
     # Health check probe for container / load balancer monitoring
@@ -30,20 +30,208 @@ server {
 }
 
 # =============================================================================================
-# Protected entry point (HTTPS TLS termination on port 8443):
-# The origin is only reachable with a valid admission token.
+# 1. Main Website: Landing Page, Architecture Overview, and Product Showcase
 # =============================================================================================
 server {
     listen 8443 ssl;
-    server_name _;
+    server_name surgeguard-innotech.duckdns.org;
 
-    # Self-signed TLS certificate & private key (SAN: surgeguard-innotech.duckdns.org)
     ssl_certificate /etc/nginx/certs/surgeguard.crt;
     ssl_certificate_key /etc/nginx/certs/surgeguard.key;
     ssl_protocols TLSv1.2 TLSv1.3;
     ssl_prefer_server_ciphers on;
     ssl_ciphers HIGH:!aNULL:!MD5;
-    ssl_session_cache shared:SSL:10m;
+    ssl_session_cache shared:SSL_INNOTECH:10m;
+    ssl_session_timeout 1d;
+
+    error_page 497 =301 https://$http_host$request_uri;
+    absolute_redirect off;
+    include /etc/nginx/snippets/security-headers.conf;
+
+    location ^~ /internal/      { return 404; }
+    location = /metrics         { return 404; }
+    location = /favicon.ico     { access_log off; return 204; }
+
+    # Next.js static asset caching
+    location ^~ /_next/static/ {
+        include /etc/nginx/snippets/proxy-headers.conf;
+        include /etc/nginx/snippets/security-headers.conf;
+        proxy_set_header Cookie "";
+        proxy_ignore_headers Set-Cookie;
+        proxy_hide_header Set-Cookie;
+        proxy_cache sg_static;
+        proxy_cache_key "$scheme$host$uri";
+        proxy_cache_valid 200 ${CACHE_TTL_SECONDS}s;
+        proxy_cache_lock on;
+        add_header X-Cache-Status $upstream_cache_status always;
+        proxy_pass http://sg_frontend;
+    }
+
+    location ^~ /_next/ {
+        include /etc/nginx/snippets/proxy-headers.conf;
+        proxy_pass http://sg_frontend;
+    }
+
+    location ^~ /images/ {
+        include /etc/nginx/snippets/proxy-headers.conf;
+        include /etc/nginx/snippets/security-headers.conf;
+        proxy_pass http://sg_frontend;
+    }
+
+    # All pages proxy to the Next.js frontend
+    location / {
+        include /etc/nginx/snippets/proxy-headers.conf;
+        include /etc/nginx/snippets/security-headers.conf;
+        proxy_connect_timeout 3s;
+        proxy_read_timeout 15s;
+        proxy_pass http://sg_frontend;
+    }
+}
+
+# =============================================================================================
+# 2. Admin / Operator Console: Real-time Queue Visualizer & Admission Controls
+# =============================================================================================
+server {
+    listen 8443 ssl;
+    server_name surgeguard-admin.duckdns.org;
+
+    ssl_certificate /etc/nginx/certs/surgeguard.crt;
+    ssl_certificate_key /etc/nginx/certs/surgeguard.key;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers on;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+    ssl_session_cache shared:SSL_ADMIN:10m;
+    ssl_session_timeout 1d;
+
+    error_page 497 =301 https://$http_host$request_uri;
+    absolute_redirect off;
+    include /etc/nginx/snippets/security-headers.conf;
+
+    location ^~ /internal/      { return 404; }
+    location = /metrics         { return 404; }
+    location = /favicon.ico     { access_log off; return 204; }
+
+    # Clean direct entry to operator dashboard
+    location = / {
+        return 302 /dashboard;
+    }
+
+    location ^~ /_next/static/ {
+        include /etc/nginx/snippets/proxy-headers.conf;
+        include /etc/nginx/snippets/security-headers.conf;
+        proxy_set_header Cookie "";
+        proxy_ignore_headers Set-Cookie;
+        proxy_hide_header Set-Cookie;
+        proxy_cache sg_static;
+        proxy_cache_key "$scheme$host$uri";
+        proxy_cache_valid 200 ${CACHE_TTL_SECONDS}s;
+        proxy_cache_lock on;
+        add_header X-Cache-Status $upstream_cache_status always;
+        proxy_pass http://sg_frontend;
+    }
+
+    location ^~ /_next/ {
+        include /etc/nginx/snippets/proxy-headers.conf;
+        proxy_pass http://sg_frontend;
+    }
+
+    location ^~ /images/ {
+        include /etc/nginx/snippets/proxy-headers.conf;
+        include /etc/nginx/snippets/security-headers.conf;
+        proxy_pass http://sg_frontend;
+    }
+
+    location / {
+        include /etc/nginx/snippets/proxy-headers.conf;
+        include /etc/nginx/snippets/security-headers.conf;
+        proxy_connect_timeout 3s;
+        proxy_read_timeout 15s;
+        proxy_pass http://sg_frontend;
+    }
+}
+
+# =============================================================================================
+# 3. Unprotected Baseline Origin Demo: Directly exposed without queue, auth, or rate limit
+# =============================================================================================
+server {
+    listen 8443 ssl;
+    server_name surgeguard-direct.duckdns.org direct-surgeguard.duckdns.org;
+
+    ssl_certificate /etc/nginx/certs/surgeguard.crt;
+    ssl_certificate_key /etc/nginx/certs/surgeguard.key;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers on;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+    ssl_session_cache shared:SSL_DIRECT:10m;
+    ssl_session_timeout 1d;
+
+    error_page 497 =301 https://$http_host$request_uri;
+    absolute_redirect off;
+    include /etc/nginx/snippets/security-headers.conf;
+
+    location = /favicon.ico { access_log off; return 204; }
+
+    location / {
+        include /etc/nginx/snippets/proxy-headers.conf;
+        proxy_set_header X-Origin-Key "${ORIGIN_SHARED_SECRET}";
+        proxy_connect_timeout ${PROXY_CONNECT_TIMEOUT_SECONDS}s;
+        proxy_send_timeout ${PROXY_READ_TIMEOUT_SECONDS}s;
+        proxy_read_timeout ${PROXY_READ_TIMEOUT_SECONDS}s;
+        proxy_next_upstream error timeout http_502 http_504;
+        proxy_next_upstream_tries 2;
+        proxy_next_upstream_timeout 10s;
+        proxy_pass http://origin_direct;
+    }
+}
+
+# =============================================================================================
+# 4. Observability & Monitoring Dashboards: Live Grafana Metrics & Prometheus Telemetry
+# =============================================================================================
+server {
+    listen 8443 ssl;
+    server_name surgeguard-monitor.duckdns.org monitor-surgeguard.duckdns.org;
+
+    ssl_certificate /etc/nginx/certs/surgeguard.crt;
+    ssl_certificate_key /etc/nginx/certs/surgeguard.key;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers on;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+    ssl_session_cache shared:SSL_MONITOR:10m;
+    ssl_session_timeout 1d;
+
+    error_page 497 =301 https://$http_host$request_uri;
+    absolute_redirect off;
+
+    location = /favicon.ico { access_log off; return 204; }
+
+    location / {
+        proxy_pass http://sg_grafana;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_connect_timeout 5s;
+        proxy_read_timeout 60s;
+    }
+}
+
+# =============================================================================================
+# 5. Protected National Exam Portal: Virtual Waiting Room + Token Gate (Default Virtual Host)
+# =============================================================================================
+server {
+    listen 8443 ssl default_server;
+    server_name surgeguard-protected.duckdns.org protected-surgeguard.duckdns.org _;
+
+    # Self-signed TLS certificate & private key (covers all 5 DuckDNS SANs)
+    ssl_certificate /etc/nginx/certs/surgeguard.crt;
+    ssl_certificate_key /etc/nginx/certs/surgeguard.key;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers on;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+    ssl_session_cache shared:SSL_PROTECTED:10m;
     ssl_session_timeout 1d;
 
     # Gracefully redirect plain HTTP requests accidentally sent to HTTPS port (code 497)
@@ -174,9 +362,7 @@ server {
         proxy_connect_timeout ${PROXY_CONNECT_TIMEOUT_SECONDS}s;
         proxy_send_timeout ${PROXY_READ_TIMEOUT_SECONDS}s;
         proxy_read_timeout ${PROXY_READ_TIMEOUT_SECONDS}s;
-        # Retries go to the next backend only for connection errors/timeouts/502/504, at most
-        # once. Nginx never retries non-idempotent methods (POST, PATCH, LOCK) without the
-        # explicit `non_idempotent` flag, which is deliberately not set.
+        # Retries go to the next backend only for connection errors/timeouts/502/504, at most once.
         proxy_next_upstream error timeout http_502 http_504;
         proxy_next_upstream_tries 2;
         proxy_next_upstream_timeout 10s;
@@ -221,8 +407,7 @@ server {
 }
 
 # =============================================================================================
-# UNPROTECTED comparison path: same backends, no queue, no auth, no rate limiting.
-# Local testing only; bound to loopback by Compose and never deployed outside development.
+# UNPROTECTED comparison path (direct loopback port 8081 for internal/k6 benchmarking)
 # =============================================================================================
 server {
     listen 8081;

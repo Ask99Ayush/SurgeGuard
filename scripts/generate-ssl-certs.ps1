@@ -58,8 +58,15 @@ $configLines = @(
   'subjectAltName       = @alt_names',
   '',
   '[alt_names]',
-  ('DNS.1 = {0}' -f $DomainName),
-  'DNS.2 = localhost',
+  'DNS.1 = surgeguard-innotech.duckdns.org',
+  'DNS.2 = surgeguard-protected.duckdns.org',
+  'DNS.3 = surgeguard-direct.duckdns.org',
+  'DNS.4 = surgeguard-admin.duckdns.org',
+  'DNS.5 = surgeguard-monitor.duckdns.org',
+  'DNS.6 = protected-surgeguard.duckdns.org',
+  'DNS.7 = direct-surgeguard.duckdns.org',
+  'DNS.8 = monitor-surgeguard.duckdns.org',
+  'DNS.9 = localhost',
   ('IP.1  = {0}' -f $PublicIp),
   'IP.2  = 127.0.0.1'
 )
