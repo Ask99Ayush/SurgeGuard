@@ -1,50 +1,42 @@
 "use client";
 
-import Image from "next/image";
+import { useState } from "react";
 import Link from "next/link";
-import { LayoutDashboard } from "lucide-react";
+import { LayoutDashboard, Menu, X } from "lucide-react";
 import { Wordmark } from "@/components/Wordmark";
 import { ButtonLink } from "@/components/ui/primitives";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 
 const links = [
   { href: "#features", label: "Features" },
-  { href: "#simulator", label: "Live Simulator" },
-  { href: "#comparison", label: "Protected vs Unprotected" },
+  { href: "#simulator", label: "Simulator" },
+  { href: "#comparison", label: "Comparison" },
   { href: "#architecture", label: "Architecture" },
-  { href: "#community", label: "AWS Cloud Club KIET" },
 ];
 
 export function SiteNav() {
+  const [mobileOpen, setMobileOpen] = useState(false);
+
   return (
     <header className="sticky top-0 z-40 px-3 pt-3 sm:px-5">
       <nav
         aria-label="Primary"
-        className="mx-auto flex h-14 max-w-7xl items-center justify-between rounded-2xl border border-border bg-surface px-3 shadow-[var(--shadow-pop)] sm:px-4"
+        className="mx-auto flex h-14 max-w-7xl items-center justify-between rounded-2xl border border-border bg-surface/95 px-3.5 shadow-[var(--shadow-pop)] backdrop-blur-md sm:px-4"
       >
-        <div className="flex items-center gap-3">
-          <Link href="/" aria-label="SurgeGuard home" className="rounded-lg">
+        {/* Left: Brand logo */}
+        <div className="flex items-center gap-2.5 shrink-0">
+          <Link href="/" aria-label="SurgeGuard home" className="rounded-lg shrink-0">
             <Wordmark />
           </Link>
-          <div className="hidden h-5 w-px bg-border sm:block" aria-hidden />
-          <div className="hidden items-center gap-2 rounded-full border border-border bg-surface-elevated px-2.5 py-1 text-xs text-muted md:inline-flex">
-            <Image
-              src="/images/aws-cloud-club-kiet.jpg"
-              alt="AWS Cloud Club KIET"
-              className="size-4.5 rounded-full object-cover ring-1 ring-border"
-              width={18}
-              height={18}
-            />
-            <span className="font-medium text-foreground">AWS Cloud Club KIET</span>
-          </div>
         </div>
 
-        <ul className="hidden items-center gap-1 xl:flex">
+        {/* Center: Clean, single-line navigation links */}
+        <ul className="hidden items-center gap-0.5 lg:flex">
           {links.map((link) => (
             <li key={link.href}>
               <a
                 href={link.href}
-                className="rounded-lg px-3 py-2 text-sm text-muted transition-colors hover:text-foreground"
+                className="whitespace-nowrap rounded-lg px-2.5 py-1.5 text-sm font-medium text-muted transition-colors hover:bg-surface-elevated hover:text-foreground"
               >
                 {link.label}
               </a>
@@ -52,20 +44,52 @@ export function SiteNav() {
           ))}
         </ul>
 
-        <div className="flex items-center gap-2">
+        {/* Right: Theme Toggle, Sign in & Dashboard Button */}
+        <div className="flex items-center gap-2 shrink-0">
           <ThemeToggle compact />
           <Link
             href="/login"
-            className="hidden rounded-lg px-3 py-2 text-sm text-muted transition-colors hover:text-foreground sm:block"
+            className="hidden whitespace-nowrap rounded-lg px-2.5 py-1.5 text-sm font-medium text-muted transition-colors hover:text-foreground sm:inline-block"
           >
-            Console Log in
+            Sign in
           </Link>
-          <ButtonLink href="/login?next=/dashboard" variant="primary" size="sm">
-            <LayoutDashboard className="size-4" aria-hidden />
-            <span>Launch Dashboard</span>
+          <ButtonLink href="/login?next=/dashboard" variant="primary" size="sm" className="whitespace-nowrap shrink-0">
+            <LayoutDashboard className="size-4 shrink-0" aria-hidden />
+            <span>Dashboard</span>
           </ButtonLink>
+
+          {/* Mobile hamburger toggle */}
+          <button
+            type="button"
+            onClick={() => setMobileOpen((prev) => !prev)}
+            aria-expanded={mobileOpen}
+            aria-label="Toggle navigation menu"
+            className="flex size-8 items-center justify-center rounded-lg border border-border text-muted hover:text-foreground lg:hidden"
+          >
+            {mobileOpen ? <X className="size-4.5" /> : <Menu className="size-4.5" />}
+          </button>
         </div>
       </nav>
+
+      {/* Mobile navigation drawer */}
+      {mobileOpen && (
+        <div className="mx-auto mt-2 max-w-7xl rounded-2xl border border-border bg-surface p-3 shadow-lg lg:hidden animate-in fade-in duration-150">
+          <ul className="flex flex-col gap-1">
+            {links.map((link) => (
+              <li key={link.href}>
+                <a
+                  href={link.href}
+                  onClick={() => setMobileOpen(false)}
+                  className="block rounded-lg px-3 py-2 text-sm font-medium text-muted transition-colors hover:bg-surface-elevated hover:text-foreground"
+                >
+                  {link.label}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </header>
   );
 }
+

@@ -1,7 +1,6 @@
-import Image from "next/image";
-import { ArrowRight, LayoutDashboard, ShieldCheck, Users, Gauge } from "lucide-react";
-import { CloudClubShowcase } from "@/components/landing/CloudClubShowcase";
+import { LayoutDashboard, ShieldCheck, Users, Gauge } from "lucide-react";
 import { DemoComparison } from "@/components/landing/DemoComparison";
+import { HeroDemoButton } from "@/components/landing/HeroDemoButton";
 import { Architecture, Features, Footer, Stack } from "@/components/landing/Sections";
 import { SiteNav } from "@/components/landing/SiteNav";
 import { SurgeSimulator } from "@/components/landing/SurgeSimulator";
@@ -12,6 +11,7 @@ export const dynamic = "force-dynamic";
 
 export default function LandingPage() {
   const demoUrl = process.env.PUBLIC_SITE_URL ?? null;
+  const directUrl = process.env.PUBLIC_DIRECT_URL ?? null;
 
   return (
     <>
@@ -21,20 +21,13 @@ export default function LandingPage() {
         <section className="relative overflow-hidden px-4 pb-14 pt-12 sm:px-6 sm:pt-16 lg:pb-20 lg:pt-20">
           <div aria-hidden className="hero-glow pointer-events-none absolute inset-0" />
           <div className="relative mx-auto max-w-4xl text-center">
-            <div className="inline-flex items-center gap-2 rounded-full border border-border bg-surface px-3 py-1.5 text-xs text-muted shadow-sm">
-              <Image
-                src="/images/aws-cloud-club-kiet.jpg"
-                alt="AWS Cloud Club KIET"
-                className="size-4 rounded-full object-cover ring-1 ring-border"
-                width={16}
-                height={16}
-              />
-              <span className="font-medium text-foreground">AWS Cloud Club KIET</span>
-              <span className="h-3 w-px bg-border" aria-hidden />
-              <span className="flex items-center gap-1.5 font-medium text-accent">
+            <div className="inline-flex items-center gap-2 rounded-full border border-border bg-surface px-3.5 py-1.5 text-xs text-muted shadow-sm">
+              <span className="flex items-center gap-1.5 font-medium text-foreground">
                 <span aria-hidden className="size-1.5 rounded-full bg-accent animate-pulse" />
                 Virtual Waiting Room
               </span>
+              <span className="h-3 w-px bg-border" aria-hidden />
+              <span className="text-muted">High-Concurrency Protection</span>
             </div>
 
             <h1 className="mt-6 text-4xl font-semibold leading-[1.08] tracking-[-0.04em] text-foreground sm:text-5xl lg:text-6xl text-balance">
@@ -52,17 +45,7 @@ export default function LandingPage() {
                 <LayoutDashboard className="size-4" aria-hidden />
                 Open Console
               </ButtonLink>
-              {demoUrl ? (
-                <ButtonLink href={demoUrl} external variant="secondary" size="lg">
-                  <span>View Live Demo</span>
-                  <ArrowRight className="size-4" aria-hidden />
-                </ButtonLink>
-              ) : (
-                <ButtonLink href="/waiting-room" variant="secondary" size="lg">
-                  <span>Test Waiting Room</span>
-                  <ArrowRight className="size-4" aria-hidden />
-                </ButtonLink>
-              )}
+              <HeroDemoButton initialUrl={demoUrl} />
             </div>
 
             <p className="mt-4 text-xs text-subtle">
@@ -139,8 +122,7 @@ export default function LandingPage() {
         {/* Collapsible Deep Dive & Simulator */}
         <LandingDeepDive
           simulator={<SurgeSimulator />}
-          comparison={<DemoComparison demoUrl={demoUrl} />}
-          showcase={<CloudClubShowcase />}
+          comparison={<DemoComparison demoUrl={demoUrl} directUrl={directUrl} />}
           features={<Features />}
           architecture={<Architecture />}
           stack={<Stack />}

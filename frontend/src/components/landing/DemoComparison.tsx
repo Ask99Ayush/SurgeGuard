@@ -1,9 +1,24 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import { ArrowUpRight, CheckCircle2, ShieldCheck, Terminal, XCircle } from "lucide-react";
 import { Badge, ButtonLink } from "@/components/ui/primitives";
+import { getDirectOriginUrl, getProtectedSiteUrl } from "@/lib/urls";
 
-export function DemoComparison({ demoUrl }: { demoUrl: string | null }) {
-  const protectedUrl = demoUrl || "/waiting-room";
-  const unprotectedUrl = "http://localhost:8081";
+export function DemoComparison({
+  demoUrl,
+  directUrl,
+}: {
+  demoUrl?: string | null;
+  directUrl?: string | null;
+}) {
+  const [protectedUrl, setProtectedUrl] = useState(() => getProtectedSiteUrl(demoUrl));
+  const [unprotectedUrl, setUnprotectedUrl] = useState(() => getDirectOriginUrl(directUrl));
+
+  useEffect(() => {
+    setProtectedUrl(getProtectedSiteUrl(demoUrl));
+    setUnprotectedUrl(getDirectOriginUrl(directUrl));
+  }, [demoUrl, directUrl]);
 
   return (
     <section id="comparison" className="scroll-mt-28 border-t border-border px-4 py-20 sm:px-6">
@@ -27,7 +42,7 @@ export function DemoComparison({ demoUrl }: { demoUrl: string | null }) {
             <div>
               <div className="flex items-center justify-between">
                 <Badge tone="success" dot>
-                  Protected Route · Port 8080
+                  Protected Route · Admission Gate
                 </Badge>
                 <span className="font-mono text-xs text-muted">Nginx + SurgeGuard Gate</span>
               </div>
@@ -64,11 +79,11 @@ export function DemoComparison({ demoUrl }: { demoUrl: string | null }) {
 
             <div className="mt-8 border-t border-border pt-5">
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <ButtonLink href={protectedUrl} variant="primary" size="md">
+                <ButtonLink href={protectedUrl} external variant="primary" size="md">
                   <span>Enter Protected Waiting Room</span>
                   <ArrowUpRight className="size-4" aria-hidden />
                 </ButtonLink>
-                <span className="font-mono text-xs text-subtle">curl -i http://localhost:8080/</span>
+                <span className="font-mono text-xs text-subtle">curl -i {protectedUrl}/</span>
               </div>
             </div>
           </div>
@@ -77,7 +92,7 @@ export function DemoComparison({ demoUrl }: { demoUrl: string | null }) {
           <div className="relative flex flex-col justify-between rounded-2xl border border-border bg-surface p-6 shadow-sm transition-all hover:border-border-strong">
             <div>
               <div className="flex items-center justify-between">
-                <Badge tone="neutral">Baseline Route · Port 8081</Badge>
+                <Badge tone="neutral">Baseline Route · Raw Origin</Badge>
                 <span className="font-mono text-xs text-muted">Direct Origin Pool</span>
               </div>
 
@@ -122,7 +137,7 @@ export function DemoComparison({ demoUrl }: { demoUrl: string | null }) {
                   <span>Open Unprotected Origin</span>
                   <ArrowUpRight className="size-4 text-muted" aria-hidden />
                 </a>
-                <span className="font-mono text-xs text-subtle">curl -i http://localhost:8081/</span>
+                <span className="font-mono text-xs text-subtle">curl -i {unprotectedUrl}/</span>
               </div>
             </div>
           </div>

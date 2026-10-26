@@ -14,7 +14,7 @@ export function LandingDeepDive({
 }: {
   simulator: ReactNode;
   comparison: ReactNode;
-  showcase: ReactNode;
+  showcase?: ReactNode;
   features: ReactNode;
   architecture: ReactNode;
   stack: ReactNode;

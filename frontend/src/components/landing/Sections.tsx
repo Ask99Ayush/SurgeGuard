@@ -1,5 +1,4 @@
 import type { ReactNode } from "react";
-import Image from "next/image";
 import {
   Activity,
   ArrowDown,
@@ -248,21 +247,13 @@ export function Footer() {
           <Wordmark />
           <p className="text-[13px] text-muted">Survive the surge. Keep every user in line.</p>
           <div className="flex items-center gap-2 pt-1 text-xs text-subtle">
-            <Image
-              src="/images/aws-cloud-club-kiet.jpg"
-              alt="AWS Cloud Club KIET"
-              className="size-4.5 rounded-full object-cover ring-1 ring-border"
-              width={18}
-              height={18}
-            />
-            <span>Mentored by AWS Cloud Club KIET · KIET Group of Institutions</span>
+            <span>Built by <strong className="font-medium text-foreground">Team InfraFusion</strong></span>
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-[13px] text-muted">
           <a href="#simulator" className="transition-colors hover:text-foreground">Simulator</a>
           <a href="#comparison" className="transition-colors hover:text-foreground">Demo Compare</a>
           <a href="#architecture" className="transition-colors hover:text-foreground">Architecture</a>
-          <a href="#community" className="transition-colors hover:text-foreground">Community</a>
           <a href="/login" className="transition-colors hover:text-foreground">Console</a>
           <span>MIT License</span>
           <span>InnoTech &apos;26</span>
