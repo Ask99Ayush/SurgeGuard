@@ -1,4 +1,5 @@
 module "network" {
+  count  = var.existing_vpc_id == "" ? 1 : 0
   source = "./modules/network"
 
   name                 = local.name
@@ -13,9 +14,15 @@ module "security" {
   source = "./modules/security"
 
   name                  = local.name
-  vpc_id                = module.network.vpc_id
+  vpc_id                = local.effective_vpc_id
   allowed_ingress_cidrs = var.allowed_ingress_cidrs
   app_port              = var.app_port
+  frontend_port         = var.frontend_port
+  grafana_port          = var.grafana_port
+  direct_port           = var.direct_port
+  ssh_port              = var.ssh_port
+  enable_direct_ingress = var.enable_direct_ingress
+  enable_ssh            = var.enable_ssh
   https                 = local.https
 }
 
@@ -23,24 +30,34 @@ module "alb" {
   source = "./modules/alb"
 
   name                = local.name
-  vpc_id              = module.network.vpc_id
-  public_subnet_ids   = module.network.public_subnet_ids
+  vpc_id              = local.effective_vpc_id
+  public_subnet_ids   = local.effective_public_subnets
   security_group_id   = module.security.alb_security_group_id
   app_port            = var.app_port
   health_check_path   = var.health_check_path
   idle_timeout        = var.alb_idle_timeout
   deletion_protection = var.alb_deletion_protection
-  certificate_arn     = var.certificate_arn
+  certificate_arn     = local.effective_certificate_arn
 }
 
+# Attach existing running EC2 instance directly to the ALB target group
+resource "aws_lb_target_group_attachment" "existing_ec2" {
+  count            = var.existing_instance_id != "" ? 1 : 0
+  target_group_arn = module.alb.target_group_arn
+  target_id        = var.existing_instance_id
+  port             = var.app_port
+}
+
+# Auto Scaling Group deployment (used for greenfield or when no existing instance is specified)
 module "compute" {
+  count  = var.existing_instance_id == "" ? 1 : 0
   source = "./modules/compute"
 
   name                 = local.name
   ami_id               = data.aws_ssm_parameter.ami.value
   instance_type        = var.instance_type
   root_volume_size_gb  = var.root_volume_size_gb
-  private_subnet_ids   = module.network.private_subnet_ids
+  private_subnet_ids   = local.effective_private_subnets
   security_group_id    = module.security.app_security_group_id
   target_group_arn     = module.alb.target_group_arn
   desired_capacity     = var.desired_capacity

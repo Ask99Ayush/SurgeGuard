@@ -9,41 +9,54 @@
 set -euo pipefail
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-ENV_FILE="${TF_ENV_FILE:-$DIR/.env}"
-REQUIRED=(AWS_REGION PROJECT_NAME ENVIRONMENT VPC_CIDR PUBLIC_SUBNET_CIDRS PRIVATE_SUBNET_CIDRS
-          ALLOWED_INGRESS_CIDRS INSTANCE_TYPE APP_SOURCE_URL APP_VERSION)
+ROOT_DIR="$(cd "$DIR/../.." && pwd)"
+
+if [ -n "${TF_ENV_FILE:-}" ] && [ -f "$TF_ENV_FILE" ]; then
+  ENV_FILE="$TF_ENV_FILE"
+elif [ -f "$ROOT_DIR/.env" ]; then
+  ENV_FILE="$ROOT_DIR/.env"
+elif [ -f "$DIR/.env" ]; then
+  ENV_FILE="$DIR/.env"
+else
+  echo "terraform-env: no .env found in $ROOT_DIR" >&2
+  exit 1
+fi
 
 [ $# -gt 0 ] || { echo "usage: $0 <terraform args...>" >&2; exit 2; }
-[ -f "$ENV_FILE" ] || { echo "terraform-env: $ENV_FILE not found (copy .env.example)" >&2; exit 1; }
 
-declare -A seen=()
+# Parse .env and export variables to Terraform
 lineno=0
 while IFS= read -r line || [ -n "$line" ]; do
   lineno=$((lineno + 1))
   line="${line%$'\r'}"
   [[ -z "${line//[[:space:]]/}" || "$line" =~ ^[[:space:]]*# ]] && continue
-  if [[ ! "$line" =~ ^([A-Z][A-Z0-9_]*)=(.*)$ ]]; then
-    echo "terraform-env: line $lineno is not KEY=VALUE; refusing to continue" >&2
-    exit 1
+  if [[ ! "$line" =~ ^([A-Za-z0-9_]+)=(.*)$ ]]; then
+    continue
   fi
   key="${BASH_REMATCH[1]}"
   value="${BASH_REMATCH[2]}"
   if [[ "$value" =~ ^\"(.*)\"$ || "$value" =~ ^\'(.*)\'$ ]]; then value="${BASH_REMATCH[1]}"; fi
-  [ -z "$value" ] && continue  # empty = use the variable's default
-  if [[ "$value" == *'<'*'>'* ]]; then
-    echo "terraform-env: $key still contains a <placeholder>" >&2
-    exit 1
-  fi
-  export "TF_VAR_${key,,}=$value"
-  seen[$key]=1
+  [ -z "$value" ] && continue
+  if [[ "$value" == *'<'*'>'* ]]; then continue; fi
+
+  # Map standard SurgeGuard .env keys to Terraform variables
+  case "$key" in
+    DOMAIN_NAME) export TF_VAR_domain_name="$value" ;;
+    EC2_PUBLIC_IP) export TF_VAR_ec2_public_ip="$value" ;;
+    CERTIFICATE_ARN) export TF_VAR_certificate_arn="$value" ;;
+    PROTECTED_PORT) export TF_VAR_app_port="$value" ;;
+    FRONTEND_PORT) export TF_VAR_frontend_port="$value" ;;
+    GRAFANA_PORT) export TF_VAR_grafana_port="$value" ;;
+    DIRECT_PORT) export TF_VAR_direct_port="$value" ;;
+    APP_ENV) export TF_VAR_environment="$value" ;;
+    *) export "TF_VAR_${key,,}=$value" ;;
+  esac
 done < "$ENV_FILE"
 
-missing=()
-for key in "${REQUIRED[@]}"; do [ -n "${seen[$key]:-}" ] || missing+=("$key"); done
-if [ ${#missing[@]} -gt 0 ]; then
-  echo "terraform-env: missing required keys: ${missing[*]}" >&2
-  exit 1
-fi
+# Sensible defaults for Terraform if not explicitly set
+export TF_VAR_aws_region="${TF_VAR_aws_region:-ap-south-1}"
+export TF_VAR_project_name="${TF_VAR_project_name:-surgeguard}"
+export TF_VAR_environment="${TF_VAR_environment:-dev}"
 
 cd "$DIR"
 exec terraform "$@"

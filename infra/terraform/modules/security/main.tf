@@ -2,6 +2,30 @@ variable "name" { type = string }
 variable "vpc_id" { type = string }
 variable "allowed_ingress_cidrs" { type = list(string) }
 variable "app_port" { type = number }
+variable "frontend_port" {
+  type    = number
+  default = 3000
+}
+variable "grafana_port" {
+  type    = number
+  default = 3001
+}
+variable "direct_port" {
+  type    = number
+  default = 8081
+}
+variable "ssh_port" {
+  type    = number
+  default = 22
+}
+variable "enable_direct_ingress" {
+  type    = bool
+  default = true
+}
+variable "enable_ssh" {
+  type    = bool
+  default = true
+}
 variable "https" { type = bool }
 
 resource "aws_security_group" "alb" {
@@ -43,7 +67,7 @@ resource "aws_vpc_security_group_egress_rule" "alb_to_app" {
 
 resource "aws_security_group" "app" {
   name_prefix = "${var.name}-app-"
-  description = "SurgeGuard host: only the ALB may reach the protected entry point"
+  description = "SurgeGuard host: ALB ingress and direct admin ports"
   vpc_id      = var.vpc_id
   lifecycle { create_before_destroy = true }
   tags = { Name = "${var.name}-app" }
@@ -56,6 +80,76 @@ resource "aws_vpc_security_group_ingress_rule" "app_from_alb" {
   ip_protocol                  = "tcp"
   from_port                    = var.app_port
   to_port                      = var.app_port
+}
+
+resource "aws_vpc_security_group_ingress_rule" "app_protected_direct" {
+  for_each          = var.enable_direct_ingress ? toset(var.allowed_ingress_cidrs) : toset([])
+  security_group_id = aws_security_group.app.id
+  description       = "SurgeGuard Protected Gateway (Nginx :8088)"
+  cidr_ipv4         = each.value
+  ip_protocol       = "tcp"
+  from_port         = var.app_port
+  to_port           = var.app_port
+}
+
+resource "aws_vpc_security_group_ingress_rule" "app_frontend" {
+  for_each          = var.enable_direct_ingress ? toset(var.allowed_ingress_cidrs) : toset([])
+  security_group_id = aws_security_group.app.id
+  description       = "SurgeGuard Web App Console (:3000)"
+  cidr_ipv4         = each.value
+  ip_protocol       = "tcp"
+  from_port         = var.frontend_port
+  to_port           = var.frontend_port
+}
+
+resource "aws_vpc_security_group_ingress_rule" "app_grafana" {
+  for_each          = var.enable_direct_ingress ? toset(var.allowed_ingress_cidrs) : toset([])
+  security_group_id = aws_security_group.app.id
+  description       = "Grafana SRE Observability Dashboards (:3001)"
+  cidr_ipv4         = each.value
+  ip_protocol       = "tcp"
+  from_port         = var.grafana_port
+  to_port           = var.grafana_port
+}
+
+resource "aws_vpc_security_group_ingress_rule" "app_direct_backend" {
+  for_each          = var.enable_direct_ingress ? toset(var.allowed_ingress_cidrs) : toset([])
+  security_group_id = aws_security_group.app.id
+  description       = "Direct demo backend (:8081)"
+  cidr_ipv4         = each.value
+  ip_protocol       = "tcp"
+  from_port         = var.direct_port
+  to_port           = var.direct_port
+}
+
+resource "aws_vpc_security_group_ingress_rule" "app_https" {
+  for_each          = var.enable_direct_ingress ? toset(var.allowed_ingress_cidrs) : toset([])
+  security_group_id = aws_security_group.app.id
+  description       = "Direct HTTPS (:443)"
+  cidr_ipv4         = each.value
+  ip_protocol       = "tcp"
+  from_port         = 443
+  to_port           = 443
+}
+
+resource "aws_vpc_security_group_ingress_rule" "app_http_direct" {
+  for_each          = var.enable_direct_ingress ? toset(var.allowed_ingress_cidrs) : toset([])
+  security_group_id = aws_security_group.app.id
+  description       = "Direct HTTP (:80)"
+  cidr_ipv4         = each.value
+  ip_protocol       = "tcp"
+  from_port         = 80
+  to_port           = 80
+}
+
+resource "aws_vpc_security_group_ingress_rule" "app_ssh" {
+  for_each          = var.enable_ssh ? toset(var.allowed_ingress_cidrs) : toset([])
+  security_group_id = aws_security_group.app.id
+  description       = "SSH management (:22)"
+  cidr_ipv4         = each.value
+  ip_protocol       = "tcp"
+  from_port         = var.ssh_port
+  to_port           = var.ssh_port
 }
 
 resource "aws_vpc_security_group_egress_rule" "app_https" {
