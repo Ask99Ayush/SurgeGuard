@@ -75,19 +75,19 @@ ORIGIN_RPS = "sum(rate(demo_requests_total[$rate_interval])) or vector(0)"
 # ─── Navigation Header Bar ─────────────────────────────────────────────────
 def nav_bar(current_uid: str) -> str:
     links = [
-        ("surgeguard-overview",   "1. Overview",            "/grafana/d/surgeguard-overview"),
-        ("surgeguard-queue",      "2. Queue & Admission",   "/grafana/d/surgeguard-queue"),
-        ("surgeguard-backends",   "3. Backends & Traffic",  "/grafana/d/surgeguard-backends"),
-        ("surgeguard-failure",    "4. Reliability & Recovery", "/grafana/d/surgeguard-failure"),
-        ("surgeguard-resources",  "5. Infrastructure",       "/grafana/d/surgeguard-resources"),
-        ("surgeguard-comparison", "6. Protected vs Unprotected", "/grafana/d/surgeguard-comparison"),
+        ("surgeguard-overview",   "1. Overview",            "/d/surgeguard-overview"),
+        ("surgeguard-queue",      "2. Queue & Admission",   "/d/surgeguard-queue"),
+        ("surgeguard-backends",   "3. Backends & Traffic",  "/d/surgeguard-backends"),
+        ("surgeguard-failure",    "4. Reliability & Recovery", "/d/surgeguard-failure"),
+        ("surgeguard-resources",  "5. Infrastructure",       "/d/surgeguard-resources"),
+        ("surgeguard-comparison", "6. Protected vs Unprotected", "/d/surgeguard-comparison"),
     ]
     items = []
     for uid, label, url in links:
         if uid == current_uid:
-            items.append(f"**[{label}]({url}?{{__url_time_range}})**")
+            items.append(f"**[{label}]({url}?${{__url_time_range}})**")
         else:
-            items.append(f"[{label}]({url}?{{__url_time_range}})")
+            items.append(f"[{label}]({url}?${{__url_time_range}})")
     return "| " + " | ".join(items) + " |"
 
 
@@ -105,12 +105,12 @@ def header(subtitle: str, current_uid: str, w: int = 24, h: int = 3) -> dict:
     board_title = titles.get(current_uid, "SurgeGuard — Service Overview")
 
     nav_links = [
-        ("surgeguard-overview",   "1. Overview",            "/grafana/d/surgeguard-overview"),
-        ("surgeguard-queue",      "2. Queue & Admission",   "/grafana/d/surgeguard-queue"),
-        ("surgeguard-backends",   "3. Backends & Traffic",  "/grafana/d/surgeguard-backends"),
-        ("surgeguard-failure",    "4. Reliability & Recovery", "/grafana/d/surgeguard-failure"),
-        ("surgeguard-resources",  "5. Infrastructure",       "/grafana/d/surgeguard-resources"),
-        ("surgeguard-comparison", "6. Protected vs Unprotected", "/grafana/d/surgeguard-comparison"),
+        ("surgeguard-overview",   "1. Overview",            "/d/surgeguard-overview"),
+        ("surgeguard-queue",      "2. Queue & Admission",   "/d/surgeguard-queue"),
+        ("surgeguard-backends",   "3. Backends & Traffic",  "/d/surgeguard-backends"),
+        ("surgeguard-failure",    "4. Reliability & Recovery", "/d/surgeguard-failure"),
+        ("surgeguard-resources",  "5. Infrastructure",       "/d/surgeguard-resources"),
+        ("surgeguard-comparison", "6. Protected vs Unprotected", "/d/surgeguard-comparison"),
     ]
     tabs = []
     for uid, label, url in nav_links:
@@ -121,7 +121,7 @@ def header(subtitle: str, current_uid: str, w: int = 24, h: int = 3) -> dict:
             else "background: #0f172a; color: #94a3b8; border: 1px solid #334155;"
         )
         tabs.append(
-            f'<a href="{url}?{{__url_time_range}}" style="{style} padding: 4px 12px; border-radius: 8px; text-decoration: none; font-size: 12px; margin-right: 6px; display: inline-block;">{label}</a>'
+            f'<a href="{url}?${{__url_time_range}}" target="_self" style="{style} padding: 4px 12px; border-radius: 8px; text-decoration: none; font-size: 12px; margin-right: 6px; display: inline-block;">{label}</a>'
         )
     tabs_html = "".join(tabs)
 
@@ -206,7 +206,7 @@ def stat(
         panel["links"] = [
             {
                 "title": f"Drill down: {title}",
-                "url": f"{link_url}?{{__url_time_range}}",
+                "url": f"{link_url}?${{__url_time_range}}",
                 "targetBlank": False,
             }
         ]
@@ -262,7 +262,7 @@ def stat_mapped(
         panel["links"] = [
             {
                 "title": f"Drill down: {title}",
-                "url": f"{link_url}?{{__url_time_range}}",
+                "url": f"{link_url}?${{__url_time_range}}",
                 "targetBlank": False,
             }
         ]
@@ -858,7 +858,7 @@ OVERVIEW_PANELS = [
             }
         ],
         description="All systems operational. Click to view Reliability & Recovery.",
-        link_url="/grafana/d/surgeguard-failure",
+        link_url="/d/surgeguard-failure",
         graph_mode="area",
         w=4, h=4,
     ),
@@ -874,7 +874,7 @@ OVERVIEW_PANELS = [
         ],
         no_value="0",
         description="Visitors currently waiting in the FIFO queue.",
-        link_url="/grafana/d/surgeguard-queue",
+        link_url="/d/surgeguard-queue",
         graph_mode="area",
         w=4, h=4,
     ),
@@ -886,7 +886,7 @@ OVERVIEW_PANELS = [
         thresholds=[{"color": GREEN, "value": None}],
         no_value="0.0 req/s",
         description="Current rate of admitted visitors to origin.",
-        link_url="/grafana/d/surgeguard-queue",
+        link_url="/d/surgeguard-queue",
         graph_mode="area",
         w=4, h=4,
     ),
@@ -904,7 +904,7 @@ OVERVIEW_PANELS = [
             }
         ],
         description="Origin backends passing active health probes (2 of 2 healthy).",
-        link_url="/grafana/d/surgeguard-backends",
+        link_url="/d/surgeguard-backends",
         graph_mode="area",
         w=4, h=4,
     ),
@@ -920,7 +920,7 @@ OVERVIEW_PANELS = [
         ],
         no_value="0.0%",
         description="Origin 5xx error ratio. Green <1%, amber 1-5%, red ≥5%.",
-        link_url="/grafana/d/surgeguard-backends",
+        link_url="/d/surgeguard-backends",
         graph_mode="area",
         w=4, h=4,
     ),
@@ -937,7 +937,7 @@ OVERVIEW_PANELS = [
             }
         ],
         description="Queue & session store connectivity.",
-        link_url="/grafana/d/surgeguard-resources",
+        link_url="/d/surgeguard-resources",
         graph_mode="area",
         w=4, h=4,
     ),
@@ -1059,7 +1059,7 @@ OVERVIEW_PANELS = [
             }
         ],
         description="Admission worker daemon state. Running = active leader loop.",
-        link_url="/grafana/d/surgeguard-failure",
+        link_url="/d/surgeguard-failure",
         graph_mode="area",
         w=4, h=7,
     ),
@@ -1075,7 +1075,7 @@ OVERVIEW_PANELS = [
         ],
         no_value="0 ms",
         description="Redis queue roundtrip latency. Green <50ms.",
-        link_url="/grafana/d/surgeguard-resources",
+        link_url="/d/surgeguard-resources",
         graph_mode="area",
         w=4, h=7,
     ),
