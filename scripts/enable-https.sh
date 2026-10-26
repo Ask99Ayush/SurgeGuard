@@ -103,20 +103,12 @@ else
   echo "[✓] Using Subnets from .env:     $SUBNET_IDS"
 fi
 
-# Check ACM for an issued certificate matching DOMAIN_NAME if not set
-if [ -z "$CERTIFICATE_ARN" ]; then
-  echo "[+] Checking AWS ACM for issued certificate for $DOMAIN_NAME..."
-  EXISTING_CERT_ARN=$(aws acm list-certificates \
-    --region "$AWS_REGION" \
-    --query "CertificateSummaryList[?DomainName=='$DOMAIN_NAME'].CertificateArn | [0]" \
-    --output text 2>/dev/null || echo "None")
-
-  if [ "$EXISTING_CERT_ARN" != "None" ] && [ -n "$EXISTING_CERT_ARN" ]; then
-    echo "[✓] Found existing ACM Certificate: $EXISTING_CERT_ARN"
-    CERTIFICATE_ARN="$EXISTING_CERT_ARN"
-  else
-    echo "[i] No ACM certificate found for $DOMAIN_NAME yet."
-  fi
+# Ensure self-signed TLS certificate with SAN exists
+if [ ! -f "$ROOT_DIR/certs/surgeguard.crt" ] || [ ! -f "$ROOT_DIR/certs/surgeguard.key" ]; then
+  echo "[+] Generating self-signed TLS certificate with SAN for $DOMAIN_NAME..."
+  bash "$ROOT_DIR/scripts/generate-ssl-certs.sh"
+else
+  echo "[✓] Existing TLS certificate found at $ROOT_DIR/certs/surgeguard.crt"
 fi
 
 # Update root .env with domain and HTTPS configuration
@@ -140,11 +132,8 @@ update_or_append_env "COOKIE_SECURE" "true"
 if [ -n "$INSTANCE_ID" ]; then update_or_append_env "EXISTING_INSTANCE_ID" "$INSTANCE_ID"; fi
 if [ -n "$VPC_ID" ]; then update_or_append_env "EXISTING_VPC_ID" "$VPC_ID"; fi
 if [ -n "$SUBNET_IDS" ] && [ "$SUBNET_IDS" != "[]" ]; then update_or_append_env "EXISTING_SUBNET_IDS" "$SUBNET_IDS"; fi
-if [ -n "$CERTIFICATE_ARN" ] && [ "$CERTIFICATE_ARN" != "None" ]; then
-  update_or_append_env "CERTIFICATE_ARN" "$CERTIFICATE_ARN"
-fi
 
-# Export to Terraform
+# Export to Terraform (Direct EC2 self-signed TLS termination, no ALB cost)
 export TF_VAR_domain_name="$DOMAIN_NAME"
 export TF_VAR_ec2_public_ip="$EC2_PUBLIC_IP"
 export TF_VAR_aws_region="$AWS_REGION"
@@ -154,10 +143,12 @@ export TF_VAR_grafana_port="$GRAFANA_PORT"
 export TF_VAR_direct_port="$DIRECT_PORT"
 export TF_VAR_ssh_port="$SSH_PORT"
 export TF_VAR_instance_type="$INSTANCE_TYPE"
+export TF_VAR_enable_alb="false"
+export TF_VAR_enable_asg="false"
+export TF_VAR_enable_vpc="false"
 if [ -n "$INSTANCE_ID" ]; then export TF_VAR_existing_instance_id="$INSTANCE_ID"; fi
 if [ -n "$VPC_ID" ]; then export TF_VAR_existing_vpc_id="$VPC_ID"; fi
 if [ "$SUBNET_IDS" != "[]" ]; then export TF_VAR_existing_subnet_ids="$SUBNET_IDS"; fi
-if [ -n "$CERTIFICATE_ARN" ] && [ "$CERTIFICATE_ARN" != "None" ]; then export TF_VAR_certificate_arn="$CERTIFICATE_ARN"; fi
 
 echo "[+] Configuration ready."
 echo "[+] Running Terraform Plan..."
@@ -166,13 +157,17 @@ terraform plan
 
 echo ""
 echo "=============================================================================="
-echo " HTTPS Configuration Summary:"
+echo " Self-Signed HTTPS Configuration Summary:"
 echo "   Domain:             https://${DOMAIN_NAME}"
 echo "   EC2 Host:           ${EC2_PUBLIC_IP}"
 echo "   Instance ID:        ${INSTANCE_ID:-Discovered at runtime}"
 echo "   VPC ID:             ${VPC_ID:-Discovered at runtime}"
-echo "   ACM Certificate:    ${CERTIFICATE_ARN:-None (HTTP->HTTPS redirect ready)}"
+echo "   TLS Termination:    Nginx host container (:443 with 80->443 redirect)"
+echo "   Certificate SAN:    ${DOMAIN_NAME}, ${EC2_PUBLIC_IP}, localhost"
 echo "=============================================================================="
 echo ""
 echo "To apply this Terraform plan, run:"
 echo "   cd infra/terraform && terraform apply"
+echo "To restart Nginx with the new TLS certificates:"
+echo "   docker compose up -d --build nginx"
+

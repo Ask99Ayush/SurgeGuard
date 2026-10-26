@@ -11,12 +11,45 @@ limit_req_log_level warn;
 proxy_cache_path /var/cache/nginx/sg levels=1:2 keys_zone=sg_static:10m max_size=100m inactive=10m use_temp_path=off;
 
 # =============================================================================================
-# Protected entry point: the origin is only reachable with a valid admission token.
+# HTTP entry point (port 8080): Container health checks and 301 redirect to HTTPS
 # =============================================================================================
 server {
     listen 8080;
     server_name _;
-    # Relative Location headers: the published port (or a load balancer) differs from 8080.
+
+    # Health check probe for container / load balancer monitoring
+    location = /healthz {
+        default_type text/plain;
+        return 200 "ok\n";
+    }
+
+    # Redirect all plain HTTP traffic to HTTPS (port 443)
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+# =============================================================================================
+# Protected entry point (HTTPS TLS termination on port 8443):
+# The origin is only reachable with a valid admission token.
+# =============================================================================================
+server {
+    listen 8443 ssl;
+    server_name _;
+
+    # Self-signed TLS certificate & private key (SAN: surgeguard-innotech.duckdns.org)
+    ssl_certificate /etc/nginx/certs/surgeguard.crt;
+    ssl_certificate_key /etc/nginx/certs/surgeguard.key;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers on;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 1d;
+
+    # Gracefully redirect plain HTTP requests accidentally sent to HTTPS port (code 497)
+    error_page 497 =301 https://$http_host$request_uri;
+
+    # Relative Location headers: the published port (or a load balancer) differs from 8443.
     absolute_redirect off;
     include /etc/nginx/snippets/security-headers.conf;
 

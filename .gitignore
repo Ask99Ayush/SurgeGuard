@@ -23,9 +23,12 @@ override.tf.json
 *_override.tf.json
 infra/terraform/backend.tf
 
-# Credentials
+# Credentials & TLS Certificates
 *.pem
 *.key
+*.crt
+*.csr
+certs/
 *.csv
 *accessKeys*.csv
 *credentials*.csv

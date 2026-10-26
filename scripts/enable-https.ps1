@@ -113,21 +113,16 @@ if ($subnetIdsArray.Count -eq 0 -and $VpcId) {
   }
 }
 
-# Check ACM for an issued certificate if not set
-if (-not $CertificateArn) {
-  Write-Host "[+] Checking AWS ACM for issued certificate for $DomainName..." -ForegroundColor Cyan
-  try {
-    $queryAcm = "CertificateSummaryList[?DomainName=='$DomainName'].CertificateArn | [0]"
-    $existingCert = aws acm list-certificates --region $AwsRegion --query $queryAcm --output text
-    if ($existingCert -and $existingCert.Trim() -ne "None") {
-      $CertificateArn = $existingCert.Trim()
-      Write-Host "[OK] Found existing ACM Certificate: $CertificateArn" -ForegroundColor Green
-    } else {
-      Write-Host "[i] No ACM certificate found for $DomainName yet." -ForegroundColor Yellow
-    }
-  } catch {
-    Write-Host "[!] ACM query warning: $_" -ForegroundColor Yellow
-  }
+# Ensure self-signed TLS certificate with SAN exists
+$CertsDir = Join-Path $RootDir "certs"
+$CertFile = Join-Path $CertsDir "surgeguard.crt"
+$KeyFile = Join-Path $CertsDir "surgeguard.key"
+
+if (-not (Test-Path $CertFile) -or -not (Test-Path $KeyFile)) {
+  Write-Host "[+] Generating self-signed TLS certificate with SAN for $DomainName..." -ForegroundColor Cyan
+  & (Join-Path $ScriptDir "generate-ssl-certs.ps1") -DomainName $DomainName -PublicIp $Ec2PublicIp
+} else {
+  Write-Host "[OK] Existing TLS certificate found at $CertFile" -ForegroundColor Green
 }
 
 # Update root .env with discovered values
@@ -197,7 +192,12 @@ ec2_public_ip            = "$Ec2PublicIp"
 existing_instance_id     = "$InstanceId"
 existing_vpc_id          = "$VpcId"
 existing_subnet_ids      = $subnetsHcl
-certificate_arn          = "$CertificateArn"
+certificate_arn          = ""
+
+# Cost and Infrastructure Controls (No paid ALB or ASG, direct EC2 self-signed TLS)
+enable_alb               = false
+enable_asg               = false
+enable_vpc               = false
 
 # SurgeGuard Ports matching .env
 app_port                 = $AppPort
@@ -239,5 +239,9 @@ Write-Host "   Domain:             https://$DomainName" -ForegroundColor White
 Write-Host "   EC2 Host:           $Ec2PublicIp" -ForegroundColor White
 Write-Host "   Instance ID:        $InstanceId" -ForegroundColor White
 Write-Host "   VPC ID:             $VpcId" -ForegroundColor White
-Write-Host "   ACM Certificate:    $(if ($CertificateArn) { $CertificateArn } else { 'None (ready for ACM import or ALB HTTP->HTTPS redirect)' })" -ForegroundColor White
+Write-Host "   TLS Termination:    Nginx host container (:443 with 80->443 redirect)" -ForegroundColor White
+Write-Host "   Certificate SAN:    $DomainName, $Ec2PublicIp, localhost" -ForegroundColor White
 Write-Host "==============================================================================" -ForegroundColor Green
+Write-Host "To apply changes and reload Nginx:" -ForegroundColor Cyan
+Write-Host "   docker compose up -d --build nginx" -ForegroundColor White
+

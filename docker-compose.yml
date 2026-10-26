@@ -182,9 +182,12 @@ services:
       PROXY_AUTH_TIMEOUT_SECONDS: ${PROXY_AUTH_TIMEOUT_SECONDS}
       CACHE_TTL_SECONDS: ${CACHE_TTL_SECONDS}
       ORIGIN_SHARED_SECRET: ${ORIGIN_SHARED_SECRET:?missing ORIGIN_SHARED_SECRET}
-      INTERNAL_AUTH_SECRET: ${INTERNAL_AUTH_SECRET:?missing INTERNAL_AUTH_SECRET}
+    volumes:
+      - ./certs:/etc/nginx/certs:ro
     ports:
-      - "${BIND_ADDRESS}:${PROTECTED_PORT}:8080"
+      - "${BIND_ADDRESS}:80:8080"
+      - "${BIND_ADDRESS}:443:8443"
+      - "${BIND_ADDRESS}:${PROTECTED_PORT}:8443"
       - "${BIND_ADDRESS}:${DIRECT_PORT}:8081"
     networks: [edge, app, origin]
     depends_on:
