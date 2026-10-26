@@ -29,6 +29,7 @@ import { Button, ButtonLink, Card, StatusDot, cn } from "@/components/ui/primiti
 import { usePolling } from "@/hooks/usePolling";
 import { useNow } from "@/hooks/useNow";
 import { formatClock, formatNumber, formatPercent } from "@/lib/format";
+import { getGrafanaDashboardUrl as resolveGrafanaDashboardUrl } from "@/lib/urls";
 import type { RangeName } from "@/lib/promql";
 
 const GRAFANA_BOARDS = [
@@ -126,10 +127,7 @@ export function MonitoringView({ grafanaUrl }: { grafanaUrl: string | null }) {
   }
 
   const getGrafanaDashboardUrl = (boardId: string) => {
-    if (grafanaUrl) {
-      return `${grafanaUrl.replace(/\/$/, "")}/d/${boardId}`;
-    }
-    return `/grafana/d/${boardId}`;
+    return resolveGrafanaDashboardUrl(boardId, grafanaUrl);
   };
 
   const recentEvents = (events.data ?? []).slice(0, 10);

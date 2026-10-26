@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { BarChart2, Clock, Command, ExternalLink, Layout, Monitor, MonitorPlay, Search, Server, Settings, Users } from "lucide-react";
 import { cn } from "@/components/ui/primitives";
 import { NAV } from "@/components/admin/AdminShell";
+import { getGrafanaBaseUrl } from "@/lib/urls";
 import { usePolling } from "@/hooks/usePolling";
 
 interface CommandItem {
@@ -24,7 +25,7 @@ export function CommandPalette({ grafanaUrl }: { grafanaUrl?: string | null }) {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const config = usePolling<{ grafana_url?: string }>("/api/admin/config", 60_000);
-  const gUrl = grafanaUrl ?? config.data?.grafana_url ?? null;
+  const gUrl = getGrafanaBaseUrl(grafanaUrl ?? config.data?.grafana_url);
 
   const NAV_ICONS: Record<string, React.ElementType> = {
     "/dashboard": Layout,

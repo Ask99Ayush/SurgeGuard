@@ -12,6 +12,8 @@ import { StateView } from "@/components/ui/StateView";
 import { usePolling } from "@/hooks/usePolling";
 import { formatMs, formatNumber, formatRelative } from "@/lib/format";
 
+import { getGrafanaDashboardUrl } from "@/lib/urls";
+
 function byOrigin(data: SeriesResponse | null): Map<string, number | null> {
   const map = new Map<string, number | null>();
   for (const s of data?.series ?? []) {
@@ -21,7 +23,7 @@ function byOrigin(data: SeriesResponse | null): Map<string, number | null> {
   return map;
 }
 
-export function BackendsView() {
+export function BackendsView({ grafanaUrl }: { grafanaUrl?: string | null } = {}) {
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   const backends = usePolling<BackendsResponse>("/api/admin/backends", 3000);
@@ -49,7 +51,7 @@ export function BackendsView() {
         breadcrumbs={[{ label: "Operations", href: "/dashboard" }, { label: "Backends" }]}
         actions={
           <a
-            href="/grafana/d/surgeguard-backends"
+            href={getGrafanaDashboardUrl("surgeguard-backends", grafanaUrl)}
             target="_blank"
             rel="noreferrer"
             className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-surface px-3 py-1.5 text-xs font-medium text-muted transition-colors hover:bg-surface-elevated hover:text-foreground"

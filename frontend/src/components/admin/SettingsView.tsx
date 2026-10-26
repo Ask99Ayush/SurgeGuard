@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import type { PromStatus } from "@/components/admin/types";
 import { Badge, Card, CardHeader } from "@/components/ui/primitives";
 import { StateView } from "@/components/ui/StateView";
+import { getGrafanaBaseUrl, getProtectedSiteUrl } from "@/lib/urls";
 import { usePolling } from "@/hooks/usePolling";
 
 type Value = string | number | boolean | string[] | null;
@@ -274,8 +275,8 @@ export function SettingsView({ grafanaUrl, siteUrl }: { grafanaUrl: string | nul
               <span className="font-mono text-xs">{config.data ? show(config.data.metrics_enabled) : "—"}</span>
             </li>
             {[
-              ["Grafana Dashboards", grafanaUrl],
-              ["Protected Origin Gateway", siteUrl],
+              ["Grafana Dashboards", getGrafanaBaseUrl(grafanaUrl)],
+              ["Protected Origin Gateway", getProtectedSiteUrl(siteUrl)],
             ].map(([label, url]) => (
               <li key={label} className="flex items-center justify-between py-2.5">
                 <span className="font-medium text-foreground">{label}</span>
