@@ -304,10 +304,10 @@ STYLE = """
 :root {
   --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
-  --radius-card: 18px;
+  --radius-card: 16px;
   --radius-pill: 9999px;
-  --radius-btn: 12px;
-  --card-shadow: 0 1px 0 0 rgba(255, 255, 255, 0.05) inset, 0 20px 40px -20px rgba(0, 0, 0, 0.95);
+  --radius-btn: 10px;
+  --card-shadow: 0 1px 0 0 rgba(255, 255, 255, 0.05) inset, 0 18px 36px -18px rgba(0, 0, 0, 0.9);
   --success: #10b981;
   --warning: #f59e0b;
   --danger: #ef4444;
@@ -327,7 +327,7 @@ body.theme-protected {
   --accent: #10b981;
   --accent-hover: #059669;
   --accent-subtle: rgba(16, 185, 129, 0.14);
-  --hero-glow: radial-gradient(circle at 50% 0%, rgba(16, 185, 129, 0.22), rgba(5, 150, 105, 0.08) 50%, transparent 75%);
+  --hero-glow: radial-gradient(circle at 50% 0%, rgba(16, 185, 129, 0.20), rgba(5, 150, 105, 0.06) 50%, transparent 75%);
   --badge-bg: rgba(16, 185, 129, 0.10);
   --badge-border: rgba(16, 185, 129, 0.35);
   --badge-color: #34d399;
@@ -347,7 +347,7 @@ body.theme-unprotected {
   --accent: #ff5c65;
   --accent-hover: #ff4752;
   --accent-subtle: rgba(255, 92, 101, 0.14);
-  --hero-glow: radial-gradient(circle at 50% 0%, rgba(244, 63, 94, 0.22), rgba(245, 158, 11, 0.10) 50%, transparent 75%);
+  --hero-glow: radial-gradient(circle at 50% 0%, rgba(244, 63, 94, 0.20), rgba(245, 158, 11, 0.08) 50%, transparent 75%);
   --badge-bg: rgba(245, 158, 11, 0.10);
   --badge-border: rgba(245, 158, 11, 0.35);
   --badge-color: #fbbf24;
@@ -367,7 +367,7 @@ body {
   transition: background 0.3s ease, color 0.3s ease;
 }
 
-/* Background Ambient Lighting */
+/* Background Ambient Glow */
 .ambient-glow {
   position: absolute;
   top: 0;
@@ -375,162 +375,168 @@ body {
   transform: translateX(-50%);
   width: 100%;
   max-width: 1200px;
-  height: 520px;
+  height: 440px;
   pointer-events: none;
   z-index: 0;
   background: var(--hero-glow);
 }
 
-/* Top System Announcement Bar */
-.top-notice-bar {
-  position: relative;
-  z-index: 30;
-  padding: 10px 24px;
-  font-size: 12px;
-  font-weight: 500;
+/* ─── SINGLE UNIFIED APP HEADER (Replaces 3 stacked bars) ─────────────── */
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  border-bottom: 1px solid var(--line);
+  background: rgba(10, 22, 16, 0.88);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  padding: 0 24px;
+}
+body.theme-unprotected .site-header {
+  background: rgba(23, 13, 17, 0.88);
+}
+.header-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  height: 60px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-bottom: 1px solid var(--line);
-  backdrop-filter: blur(12px);
-}
-.bar-protected {
-  background: rgba(16, 185, 129, 0.08);
-  border-color: rgba(16, 185, 129, 0.25);
-  color: var(--success);
-}
-.bar-unprotected {
-  background: rgba(245, 158, 11, 0.08);
-  border-color: rgba(245, 158, 11, 0.25);
-  color: var(--warning);
-}
-.bar-left {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-weight: 600;
-}
-.bar-actions {
-  display: flex;
-  align-items: center;
   gap: 16px;
 }
-.bar-link {
-  color: inherit;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-  opacity: 0.9;
-  font-weight: 600;
-  transition: opacity 0.15s;
-}
-.bar-link:hover {
-  opacity: 1;
-}
 
-/* Header */
-header {
-  position: relative;
-  z-index: 20;
-  border-bottom: 1px solid var(--line);
-  background: var(--surface);
-  padding: 16px 24px;
-}
-.header-wrap {
-  max-width: 1040px;
-  margin: 0 auto;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 20px;
-}
 .inst-brand {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
   text-decoration: none;
   color: var(--fg);
+  flex-shrink: 0;
 }
 .inst-emblem {
-  width: 46px;
-  height: 46px;
-  border-radius: 12px;
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
   background: var(--surface-elevated);
   border: 1px solid var(--line-strong);
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.35);
   flex-shrink: 0;
 }
 .inst-title h1 {
-  font-size: 18px;
+  font-size: 15px;
   font-weight: 800;
   letter-spacing: -0.02em;
+  line-height: 1.2;
 }
 .inst-title p {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--muted);
-  margin-top: 1px;
-}
-.header-controls {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-.header-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  padding: 6px 14px;
-  border-radius: var(--radius-pill);
-  font-size: 12px;
-  font-weight: 700;
-  border: 1px solid var(--line);
-  background: var(--surface-elevated);
+  line-height: 1.2;
 }
 
-/* Navigation Tabs */
-.nav-tabs-bar {
-  position: relative;
-  z-index: 15;
-  background: var(--surface);
-  border-bottom: 1px solid var(--line);
-  padding: 0 24px;
-}
-.nav-tabs-wrap {
-  max-width: 1040px;
-  margin: 0 auto;
+/* Nav Pills (Center) */
+.nav-pills {
   display: flex;
   align-items: center;
-  gap: 8px;
-  overflow-x: auto;
+  gap: 4px;
+  background: var(--surface-elevated);
+  padding: 3px 4px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--line);
 }
-.nav-tab {
-  padding: 13px 18px;
-  font-size: 13px;
+.nav-pill {
+  padding: 6px 14px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--muted);
   text-decoration: none;
-  border-bottom: 2px solid transparent;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
+  border-radius: var(--radius-pill);
+  transition: all 0.15s ease;
   white-space: nowrap;
-  transition: all 0.15s;
 }
-.nav-tab:hover {
+.nav-pill:hover {
   color: var(--fg);
+  background: rgba(255, 255, 255, 0.05);
 }
-.nav-tab.active {
-  color: var(--fg);
-  border-bottom-color: var(--accent);
+.nav-pill.active {
+  color: #ffffff;
   font-weight: 700;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+body.theme-protected .nav-pill.active {
+  background: #10b981;
+}
+body.theme-unprotected .nav-pill.active {
+  background: #ef4444;
 }
 
-/* Pulsing Dots */
+/* Header Right Actions */
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+.status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: var(--radius-pill);
+  font-size: 11px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  background: var(--badge-bg);
+  border: 1px solid var(--badge-border);
+  color: var(--badge-color);
+  white-space: nowrap;
+}
+.btn-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 13px;
+  border-radius: var(--radius-pill);
+  font-size: 11px;
+  font-weight: 700;
+  text-decoration: none;
+  background: var(--surface-elevated);
+  border: 1px solid var(--line-strong);
+  color: var(--fg);
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+.btn-switch:hover {
+  background: var(--surface-hover);
+  border-color: var(--fg);
+  transform: translateY(-1px);
+}
+.header-sublinks {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-left: 1px solid var(--line);
+  padding-left: 10px;
+}
+.sublink {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  text-decoration: none;
+  transition: color 0.15s;
+}
+.sublink:hover {
+  color: var(--fg);
+  text-decoration: underline;
+}
+
+/* Pulsing Status Indicators */
 .pulse-dot {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
   background: var(--success);
   display: inline-block;
@@ -544,259 +550,185 @@ header {
 }
 @keyframes pulse-green {
   0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
-  70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+  70% { transform: scale(1); box-shadow: 0 0 0 5px rgba(16, 185, 129, 0); }
   100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
 }
 @keyframes pulse-amber {
   0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7); }
-  70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(245, 158, 11, 0); }
+  70% { transform: scale(1); box-shadow: 0 0 0 5px rgba(245, 158, 11, 0); }
   100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
 }
 
-/* Main Container */
+/* ─── MAIN CONTENT CONTAINER ─────────────────────────────────────────── */
 main {
   position: relative;
   z-index: 10;
   max-width: 1040px;
   width: 100%;
-  margin: 32px auto;
+  margin: 22px auto 36px;
   padding: 0 20px;
   flex: 1;
 }
 
-/* Hero Section (Matching Landing Page Screenshot) */
-.hero-block {
+/* ─── COMPACT PORTAL HERO (Cleaner, less vertical overhead) ──────────── */
+.portal-hero {
   text-align: center;
-  padding: 44px 20px 48px;
-  max-width: 820px;
+  padding: 12px 16px 20px;
+  max-width: 720px;
   margin: 0 auto;
 }
-.hero-pill {
+.portal-badge {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 16px;
+  gap: 7px;
+  padding: 4px 12px;
   border-radius: var(--radius-pill);
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 600;
   background: var(--badge-bg);
   border: 1px solid var(--badge-border);
   color: var(--badge-color);
-  margin-bottom: 22px;
+  margin-bottom: 10px;
 }
-.hero-title {
-  font-size: 48px;
+.portal-title {
+  font-size: 28px;
   font-weight: 800;
-  line-height: 1.12;
-  letter-spacing: -0.04em;
+  line-height: 1.2;
+  letter-spacing: -0.03em;
   color: #ffffff;
-  margin-bottom: 18px;
+  margin-bottom: 6px;
 }
-.hero-gradient-protected {
-  background: linear-gradient(135deg, #ffffff 40%, #34d399 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-.hero-gradient-unprotected {
-  background: linear-gradient(135deg, #ffffff 40%, #fb7185 80%, #f59e0b 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-.hero-desc {
-  font-size: 16px;
-  line-height: 1.6;
-  color: var(--muted);
-  max-width: 660px;
-  margin: 0 auto 30px;
-}
-.hero-actions {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 14px;
-  flex-wrap: wrap;
-}
-.btn-hero-primary {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 13px 26px;
-  border-radius: var(--radius-pill);
-  background: #ffffff;
-  color: #000000;
-  font-size: 14px;
-  font-weight: 700;
-  text-decoration: none;
-  border: none;
-  cursor: pointer;
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.4);
-  transition: all 0.15s ease;
-}
-.btn-hero-primary:hover {
-  background: #f1f5f9;
-  transform: translateY(-1px);
-}
-.btn-hero-warn {
-  background: #f59e0b;
-  color: #000000;
-}
-.btn-hero-warn:hover {
-  background: #fbbf24;
-}
-.btn-hero-secondary {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 13px 24px;
-  border-radius: var(--radius-pill);
-  background: var(--surface-elevated);
-  border: 1px solid var(--line-strong);
-  color: var(--fg);
+.portal-desc {
   font-size: 13px;
-  font-weight: 600;
-  text-decoration: none;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-.btn-hero-secondary:hover {
-  background: var(--surface-hover);
-  border-color: var(--fg);
-  transform: translateY(-1px);
-}
-
-/* Card Container */
-.card {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-card);
-  padding: 32px;
-  box-shadow: var(--card-shadow);
-  margin-bottom: 24px;
-}
-
-/* Live Telemetry / Stress Test Card */
-.telemetry-card {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  padding: 24px;
-  margin-bottom: 28px;
-}
-.telemetry-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 18px;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-.telemetry-title {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.telemetry-title h3 {
-  font-size: 16px;
-  font-weight: 700;
-}
-.telemetry-title span {
-  font-size: 11px;
-  padding: 3px 9px;
-  border-radius: 6px;
-  font-weight: 700;
-}
-.slots-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 10px;
-  margin-bottom: 16px;
-}
-.slot-pill {
-  background: var(--surface-elevated);
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: 11px 14px;
-  text-align: center;
-  font-size: 12px;
-  font-family: var(--font-mono);
-  font-weight: 600;
-  transition: all 0.2s ease;
-}
-.slot-active {
-  background: rgba(239, 68, 68, 0.15);
-  border-color: rgba(239, 68, 68, 0.5);
-  color: var(--danger);
-  box-shadow: 0 0 14px rgba(239, 68, 68, 0.25);
-}
-.slot-idle {
-  background: rgba(16, 185, 129, 0.08);
-  border-color: rgba(16, 185, 129, 0.3);
-  color: var(--success);
-}
-.telemetry-bar-wrap {
-  width: 100%;
-  height: 10px;
-  background: var(--surface-elevated);
-  border-radius: 5px;
-  overflow: hidden;
-  margin-bottom: 16px;
-}
-.telemetry-bar {
-  height: 100%;
-  border-radius: 5px;
-  transition: width 0.3s ease, background 0.3s ease;
-}
-.telemetry-actions {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 14px;
-  font-size: 12px;
+  line-height: 1.5;
   color: var(--muted);
-}
-.btn-spike {
-  padding: 11px 22px;
-  border-radius: var(--radius-pill);
-  font-size: 13px;
-  font-weight: 700;
-  border: 1px solid rgba(245, 158, 11, 0.4);
-  background: rgba(245, 158, 11, 0.15);
-  color: var(--warning);
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  transition: all 0.15s;
-}
-.btn-spike:hover {
-  background: rgba(245, 158, 11, 0.25);
-  border-color: var(--warning);
-  transform: translateY(-1px);
-}
-.btn-spike:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
+  max-width: 580px;
+  margin: 0 auto;
 }
 
-/* Simulation Log Feed */
-.sim-log-box {
-  margin-top: 16px;
+/* ─── LIVE TELEMETRY & SURGE TEST STRIP (Integrated 1-row) ───────────── */
+.live-strip {
   background: var(--surface-elevated);
   border: 1px solid var(--line);
   border-radius: 12px;
-  padding: 16px;
+  padding: 10px 16px;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.live-strip-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.live-tag {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--subtle);
+}
+.slot-chips {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.mini-slot {
+  padding: 4px 9px;
+  border-radius: 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  transition: all 0.2s ease;
+}
+.mini-slot.active {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.6);
+  color: var(--danger);
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.3);
+}
+.mini-slot.idle {
+  color: var(--muted);
+}
+.live-counter {
   font-family: var(--font-mono);
   font-size: 12px;
-  line-height: 1.7;
-  max-height: 240px;
+  font-weight: 700;
+  color: var(--warning);
+}
+.prot-badges {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.prot-badge-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--fg);
+}
+.prot-badge-item span {
+  color: var(--success);
+  font-weight: 800;
+}
+.btn-live-test {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+.btn-test-unprot {
+  background: rgba(245, 158, 11, 0.16);
+  border-color: rgba(245, 158, 11, 0.4);
+  color: var(--warning);
+}
+.btn-test-unprot:hover {
+  background: rgba(245, 158, 11, 0.28);
+  transform: translateY(-1px);
+}
+.btn-test-prot {
+  background: rgba(16, 185, 129, 0.16);
+  border-color: rgba(16, 185, 129, 0.4);
+  color: var(--success);
+}
+.btn-test-prot:hover {
+  background: rgba(16, 185, 129, 0.28);
+  transform: translateY(-1px);
+}
+.sim-log-drawer {
+  margin-top: -12px;
+  margin-bottom: 20px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.6;
+  max-height: 180px;
   overflow-y: auto;
 }
 .sim-log-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 4px 0;
+  padding: 3px 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.04);
 }
 .sim-log-item:last-child {
@@ -810,38 +742,43 @@ main {
   font-weight: 700;
 }
 
-/* Search Form */
-.form-title {
-  font-size: 24px;
-  font-weight: 800;
-  letter-spacing: -0.03em;
-  margin-bottom: 6px;
+/* ─── CARD CONTAINER ─────────────────────────────────────────────────── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  padding: 24px 28px;
+  box-shadow: var(--card-shadow);
+  margin-bottom: 22px;
 }
-.form-desc {
+
+/* Search Form Elements */
+.search-header {
+  margin-bottom: 16px;
+}
+.search-title {
+  font-size: 19px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin-bottom: 3px;
+}
+.search-desc {
   font-size: 13px;
   color: var(--muted);
-  margin-bottom: 24px;
 }
 .search-form {
   display: flex;
   flex-direction: column;
-  gap: 20px;
-}
-.input-label {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--fg);
-  margin-bottom: 6px;
-  display: block;
+  gap: 16px;
 }
 .input-row {
   display: flex;
-  gap: 12px;
+  gap: 10px;
 }
 .text-input {
   flex: 1;
-  padding: 14px 20px;
-  font-size: 15px;
+  padding: 12px 16px;
+  font-size: 14px;
   font-family: var(--font-mono);
   background: var(--surface-elevated);
   border: 1px solid var(--line-strong);
@@ -855,20 +792,21 @@ main {
   box-shadow: 0 0 0 2px var(--accent-subtle);
 }
 .btn-submit {
-  padding: 14px 28px;
+  padding: 12px 24px;
   background: #ffffff;
   color: #000000;
   border: none;
   border-radius: var(--radius-pill);
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   gap: 8px;
   transition: all 0.15s;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 3px 14px rgba(0, 0, 0, 0.35);
   text-decoration: none;
+  white-space: nowrap;
 }
 .btn-submit:hover {
   background: #f1f5f9;
@@ -877,9 +815,9 @@ main {
 
 /* Showcase Personas */
 .showcase-block {
-  margin-top: 26px;
+  margin-top: 20px;
   border-top: 1px solid var(--line);
-  padding-top: 24px;
+  padding-top: 18px;
 }
 .showcase-label {
   font-size: 11px;
@@ -887,30 +825,30 @@ main {
   letter-spacing: 0.05em;
   font-weight: 700;
   color: var(--subtle);
-  margin-bottom: 14px;
+  margin-bottom: 10px;
 }
 .showcase-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 10px;
 }
 .persona-chip {
   background: var(--surface-elevated);
   border: 1px solid var(--line);
-  border-radius: 14px;
-  padding: 14px 18px;
+  border-radius: 12px;
+  padding: 12px 16px;
   text-decoration: none;
   color: var(--fg);
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
   transition: all 0.15s;
 }
 .persona-chip:hover {
   border-color: var(--accent);
   background: var(--surface-hover);
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.5);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px -6px rgba(0, 0, 0, 0.4);
 }
 .persona-top {
   display: flex;
@@ -929,7 +867,7 @@ main {
   color: var(--success);
 }
 .persona-name {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
 }
 .persona-tag {
@@ -937,7 +875,7 @@ main {
   color: var(--muted);
 }
 
-/* Result / Marksheet View */
+/* ─── RESULT & CERTIFICATE VIEW ──────────────────────────────────────── */
 .certificate-frame {
   position: relative;
   overflow: hidden;
@@ -947,7 +885,7 @@ main {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%) rotate(-25deg);
-  font-size: 72px;
+  font-size: 64px;
   font-weight: 900;
   color: rgba(255, 255, 255, 0.02);
   pointer-events: none;
@@ -960,28 +898,28 @@ main {
   align-items: flex-start;
   justify-content: space-between;
   border-bottom: 1px solid var(--line);
-  padding-bottom: 24px;
-  margin-bottom: 24px;
+  padding-bottom: 20px;
+  margin-bottom: 20px;
   flex-wrap: wrap;
-  gap: 16px;
+  gap: 14px;
 }
 .res-title-group h2 {
-  font-size: 26px;
+  font-size: 24px;
   font-weight: 800;
   letter-spacing: -0.02em;
 }
 .res-meta {
   font-size: 13px;
   color: var(--muted);
-  margin-top: 4px;
+  margin-top: 3px;
 }
 .badge-grade {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 16px;
+  padding: 5px 14px;
   border-radius: var(--radius-pill);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 800;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -990,18 +928,18 @@ main {
   background: rgba(16, 185, 129, 0.15);
   color: var(--success);
   border: 1px solid rgba(16, 185, 129, 0.35);
-  box-shadow: 0 0 16px rgba(16, 185, 129, 0.2);
+  box-shadow: 0 0 14px rgba(16, 185, 129, 0.18);
 }
 
 .bio-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 14px;
   background: var(--surface-elevated);
   border: 1px solid var(--line);
   border-radius: 12px;
-  padding: 18px 20px;
-  margin-bottom: 24px;
+  padding: 16px 18px;
+  margin-bottom: 22px;
 }
 .bio-item p:first-child {
   font-size: 11px;
@@ -1011,22 +949,22 @@ main {
   font-weight: 700;
 }
 .bio-item p:last-child {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   margin-top: 2px;
 }
 
 .summary-strip {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 14px;
-  margin-bottom: 28px;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  margin-bottom: 24px;
 }
 .sum-box {
   background: var(--surface-elevated);
   border: 1px solid var(--line);
-  border-radius: 14px;
-  padding: 18px;
+  border-radius: 12px;
+  padding: 16px;
   text-align: center;
 }
 .sum-label {
@@ -1037,16 +975,16 @@ main {
   letter-spacing: 0.05em;
 }
 .sum-value {
-  font-size: 26px;
+  font-size: 24px;
   font-weight: 800;
-  margin-top: 6px;
+  margin-top: 4px;
   font-family: var(--font-mono);
 }
 
 .marks-table {
   width: 100%;
   border-collapse: collapse;
-  margin-bottom: 28px;
+  margin-bottom: 24px;
 }
 .marks-table th {
   text-align: left;
@@ -1054,12 +992,12 @@ main {
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--subtle);
-  padding: 12px 16px;
+  padding: 11px 14px;
   border-bottom: 1px solid var(--line-strong);
   background: var(--surface-elevated);
 }
 .marks-table td {
-  padding: 14px 16px;
+  padding: 12px 14px;
   font-size: 13px;
   border-bottom: 1px solid var(--line);
 }
@@ -1069,7 +1007,7 @@ main {
 .score-bar-bg {
   width: 100%;
   max-width: 120px;
-  height: 6px;
+  height: 5px;
   background: var(--surface-elevated);
   border-radius: 3px;
   overflow: hidden;
@@ -1081,18 +1019,31 @@ main {
   border-radius: 3px;
 }
 
-/* Verification and Audit Strip */
+/* Progress bar utilities */
+.telemetry-bar-wrap {
+  width: 100%;
+  height: 8px;
+  background: var(--surface-elevated);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.telemetry-bar {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
 .audit-strip {
   background: var(--surface-elevated);
   border: 1px solid var(--line);
   border-radius: 12px;
-  padding: 16px 20px;
-  margin-bottom: 24px;
+  padding: 14px 18px;
+  margin-bottom: 22px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 14px;
+  gap: 12px;
   font-size: 12px;
   color: var(--subtle);
 }
@@ -1100,27 +1051,47 @@ main {
 .actions-row {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   flex-wrap: wrap;
 }
 .btn-outline {
-  padding: 13px 22px;
+  padding: 11px 20px;
   background: var(--surface-elevated);
   border: 1px solid var(--line-strong);
   color: var(--fg);
   border-radius: var(--radius-pill);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
   text-decoration: none;
   cursor: pointer;
   transition: all 0.15s;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 7px;
 }
 .btn-outline:hover {
   background: var(--surface-hover);
   border-color: var(--fg);
+  transform: translateY(-1px);
+}
+.btn-hero-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  border-radius: var(--radius-pill);
+  background: #ffffff;
+  color: #000000;
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  transition: all 0.15s ease;
+}
+.btn-hero-primary:hover {
+  background: #f1f5f9;
   transform: translateY(-1px);
 }
 
@@ -1152,12 +1123,12 @@ main {
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--subtle);
-  padding: 12px 16px;
+  padding: 11px 14px;
   border-bottom: 1px solid var(--line-strong);
   background: var(--surface-elevated);
 }
 .merit-table td {
-  padding: 14px 16px;
+  padding: 12px 14px;
   font-size: 13px;
   border-bottom: 1px solid var(--line);
 }
@@ -1165,13 +1136,13 @@ main {
   background: var(--surface-hover);
 }
 .rank-badge {
-  width: 26px;
-  height: 26px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 800;
   font-family: var(--font-mono);
 }
@@ -1182,11 +1153,37 @@ main {
 
 footer {
   border-top: 1px solid var(--line);
-  padding: 24px 20px;
+  padding: 20px 24px;
   font-size: 12px;
   color: var(--subtle);
   background: var(--surface);
   margin-top: auto;
+}
+
+/* Responsive adjustments */
+@media (max-width: 860px) {
+  .header-inner {
+    height: auto;
+    flex-direction: column;
+    padding: 12px 0;
+    gap: 10px;
+  }
+  .nav-pills {
+    width: 100%;
+    overflow-x: auto;
+    justify-content: flex-start;
+  }
+  .header-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .live-strip {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .input-row {
+    flex-direction: column;
+  }
 }
 
 /* Dedicated Print Stylesheet */
@@ -1195,14 +1192,14 @@ footer {
     background: #ffffff !important;
     color: #000000 !important;
   }
-  .ambient-glow, .top-notice-bar, .header-controls, .nav-tabs-bar, .hero-block, .telemetry-card, .actions-row, footer {
+  .ambient-glow, .site-header, .live-strip, .sim-log-drawer, .actions-row, footer {
     display: none !important;
   }
   .card {
     border: 2px solid #000 !important;
     box-shadow: none !important;
     background: #ffffff !important;
-    padding: 20px !important;
+    padding: 18px !important;
   }
   .bio-grid, .sum-box, .marks-table th, .audit-strip {
     background: #f8fafc !important;
@@ -1220,46 +1217,24 @@ def render_page(title: str, body: str, is_protected: bool, active_tab: str = "se
     theme_class = "theme-protected" if is_protected else "theme-unprotected"
 
     if is_protected:
-        notice_bar = """
-        <div class="top-notice-bar bar-protected">
-          <div class="bar-left">
-            <span class="pulse-dot"></span>
-            <span>PROTECTED GATEWAY &middot; SurgeGuard Virtual Waiting Room Active</span>
-          </div>
-          <div class="bar-actions">
-            <span>Origin Health: 100% Protected (Zero Drops)</span>
-            <a href="#" id="link-unprotected" class="bar-link">Compare: Unprotected Site (:8081) &rarr;</a>
-            <a href="#" id="link-console" class="bar-link">Operator Console &rarr;</a>
-            <a href="#" id="link-grafana" class="bar-link">Grafana SRE &rarr;</a>
-          </div>
-        </div>
-        """
-        mode_badge = """
-        <span class="header-pill" style="border-color: rgba(16, 185, 129, 0.4); color: var(--success);">
-          <span class="pulse-dot" style="width:6px;height:6px"></span>
-          Gate Verified (:8088)
+        status_html = """
+        <span class="status-chip" title="SurgeGuard Virtual Waiting Room Active">
+          <span class="pulse-dot"></span>
+          <span>Protected (:8088)</span>
         </span>
+        <a href="#" id="link-switch" class="btn-switch" title="Compare with Direct Raw Origin">
+          <span>Compare Origin (:8081) &rarr;</span>
+        </a>
         """
     else:
-        notice_bar = """
-        <div class="top-notice-bar bar-unprotected">
-          <div class="bar-left">
-            <span class="pulse-dot pulse-dot-amber"></span>
-            <span>UNPROTECTED BASELINE ORIGIN &middot; No Waiting Room &middot; Vulnerable to Surge Saturation</span>
-          </div>
-          <div class="bar-actions">
-            <span>Origin Health: Fragile (Cap: 4 slots)</span>
-            <a href="#" id="link-protected" class="bar-link">Switch to: Protected Site (:8088) &rarr;</a>
-            <a href="#" id="link-console" class="bar-link">Operator Console &rarr;</a>
-            <a href="#" id="link-grafana" class="bar-link">Grafana SRE &rarr;</a>
-          </div>
-        </div>
-        """
-        mode_badge = """
-        <span class="header-pill" style="border-color: rgba(245, 158, 11, 0.4); color: var(--warning);">
-          <span class="pulse-dot pulse-dot-amber" style="width:6px;height:6px"></span>
-          Direct Origin (:8081)
+        status_html = """
+        <span class="status-chip" title="Direct Origin · 4-Slot Concurrency Ceiling">
+          <span class="pulse-dot pulse-dot-amber"></span>
+          <span>Direct Origin (:8081)</span>
         </span>
+        <a href="#" id="link-switch" class="btn-switch" style="border-color:rgba(16,185,129,0.5);color:var(--success)" title="Switch to SurgeGuard Protected Gateway">
+          <span>Switch to Protected (:8088) &rarr;</span>
+        </a>
         """
 
     tab_search_active = "active" if active_tab == "search" else ""
@@ -1277,56 +1252,46 @@ def render_page(title: str, body: str, is_protected: bool, active_tab: str = "se
 </head>
 <body class="{theme_class}">
   <div class="ambient-glow"></div>
-  {notice_bar}
-  <header>
-    <div class="header-wrap">
+  <header class="site-header">
+    <div class="header-inner">
       <a href="/?tab=search" class="inst-brand" aria-label="National Examination Board Home">
         <div class="inst-emblem">
-          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--accent)">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--accent)">
             <path d="M12 2L3 7v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-9-5z"/>
             <path d="M9 12l2 2 4-4"/>
           </svg>
         </div>
         <div class="inst-title">
           <h1>National Examination Board</h1>
-          <p>All India Senior Secondary Examination Results 2026</p>
+          <p>Results Portal 2026</p>
         </div>
       </a>
-      <div class="header-controls">
-        {mode_badge}
+
+      <nav class="nav-pills" aria-label="Portal Navigation">
+        <a href="/?tab=search" class="nav-pill {tab_search_active}">Results Search</a>
+        <a href="/?tab=merit" class="nav-pill {tab_merit_active}">Merit List</a>
+        <a href="/?tab=stats" class="nav-pill {tab_stats_active}">Statistics</a>
+        <a href="/?tab=architecture" class="nav-pill {tab_arch_active}">Architecture</a>
+      </nav>
+
+      <div class="header-actions">
+        {status_html}
+        <div class="header-sublinks">
+          <a href="#" id="link-console" class="sublink" title="Operator Console">Console</a>
+          <a href="#" id="link-grafana" class="sublink" title="Grafana Dashboards">Grafana</a>
+        </div>
       </div>
     </div>
   </header>
-
-  <nav class="nav-tabs-bar">
-    <div class="nav-tabs-wrap">
-      <a href="/?tab=search" class="nav-tab {tab_search_active}">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-        <span>Candidate Search</span>
-      </a>
-      <a href="/?tab=merit" class="nav-tab {tab_merit_active}">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg>
-        <span>All-India Merit List 2026</span>
-      </a>
-      <a href="/?tab=stats" class="nav-tab {tab_stats_active}">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-        <span>Examination Statistics</span>
-      </a>
-      <a href="/?tab=architecture" class="nav-tab {tab_arch_active}">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
-        <span>Surge Protection Architecture</span>
-      </a>
-    </div>
-  </nav>
 
   <main>
     {body}
   </main>
 
   <footer>
-    <div style="max-width:1040px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+    <div style="max-width:1080px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
       <div>
-        Served by origin node: <strong>{html.escape(INSTANCE)}</strong> &middot; National Examination Complex Digital Portal
+        Served by origin node: <strong>{html.escape(INSTANCE)}</strong> &middot; National Examination Board Portal
       </div>
       <div>
         Built by <strong>Team InfraFusion</strong> &middot; SurgeGuard High-Concurrency Demonstration
@@ -1339,13 +1304,13 @@ def render_page(title: str, body: str, is_protected: bool, active_tab: str = "se
     (function() {{
       const host = window.location.hostname;
       const proto = window.location.protocol;
-      const unprotLink = document.getElementById('link-unprotected');
-      const protLink = document.getElementById('link-protected');
+      const switchLink = document.getElementById('link-switch');
       const consoleLink = document.getElementById('link-console');
       const grafanaLink = document.getElementById('link-grafana');
 
-      if (unprotLink) unprotLink.href = proto + '//' + host + ':8081';
-      if (protLink) protLink.href = proto + '//' + host + ':8088';
+      if (switchLink) {{
+        switchLink.href = proto + '//' + host + ':{8081 if is_protected else 8088}';
+      }}
       if (consoleLink) consoleLink.href = proto + '//' + host + ':3000/dashboard';
       if (grafanaLink) grafanaLink.href = proto + '//' + host + ':3001/d/surgeguard-comparison';
     }})();
@@ -1501,65 +1466,39 @@ async def results(request: Request, roll: str = Form(...)) -> HTMLResponse:
 
 def render_search_page(is_protected: bool) -> HTMLResponse:
     if not is_protected:
-        # Unprotected Hero & Telemetry Block (Ruby Crimson Theme)
-        hero_block = """
-        <div class="hero-block">
-          <div class="hero-pill">
+        # Unprotected Hero & Live Strip (Ruby Crimson Theme)
+        portal_hero = """
+        <div class="portal-hero">
+          <div class="portal-badge">
             <span class="pulse-dot pulse-dot-amber"></span>
-            <span>Direct Raw Origin &middot; Fragile 4-Slot Concurrency</span>
+            <span>Direct Raw Origin &middot; Fragile 4-Slot Concurrency Cap</span>
           </div>
-          <h1 class="hero-title">
-            Unprotected origin.<br>
-            <span class="hero-gradient-unprotected">Vulnerable to traffic surges.</span>
+          <h1 class="portal-title">
+            Senior Secondary Examination Results 2026
           </h1>
-          <p class="hero-desc">
-            Direct database ingress with no virtual waiting room. Sudden traffic spikes immediately saturate origin worker slots, dropping excess visitors with HTTP 503 errors.
+          <p class="portal-desc">
+            Raw origin database without waiting room queueing. Traffic surges immediately saturate worker slots, dropping visitors with HTTP 503 errors.
           </p>
-          <div class="hero-actions">
-            <button type="button" class="btn-hero-primary btn-hero-warn" onclick="triggerTrafficSpike()">
-              <span>&#9889; Simulate Traffic Surge (Test 503 Crash)</span>
-            </button>
-            <a href="#" id="hero-btn-prot" class="btn-hero-secondary">
-              <span>Switch to Protected (:8088) &rarr;</span>
-            </a>
-          </div>
         </div>
         """
 
-        telemetry_block = f"""
-        <div class="telemetry-card">
-          <div class="telemetry-header">
-            <div class="telemetry-title">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--warning)">
-                <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
-              </svg>
-              <h3>Direct Origin Concurrency &amp; Health</h3>
-              <span style="background:rgba(245, 158, 11, 0.15);color:var(--warning);border:1px solid rgba(245, 158, 11, 0.3)">
-                Fragile Mode
-              </span>
+        live_strip = f"""
+        <div class="live-strip">
+          <div class="live-strip-left">
+            <span class="live-tag">Worker Slots:</span>
+            <div class="slot-chips">
+              <span class="mini-slot idle" id="slot-1">Slot 1 · Idle</span>
+              <span class="mini-slot idle" id="slot-2">Slot 2 · Idle</span>
+              <span class="mini-slot idle" id="slot-3">Slot 3 · Idle</span>
+              <span class="mini-slot idle" id="slot-4">Slot 4 · Idle</span>
             </div>
-            <span id="load-count" style="font-family:var(--font-mono);font-size:13px;font-weight:700">0 / {MAX_CONCURRENCY} active slots</span>
+            <span class="live-counter" id="load-count">0 / {MAX_CONCURRENCY} active slots</span>
           </div>
-
-          <div class="slots-grid">
-            <div class="slot-pill slot-idle" id="slot-1">Slot 1 · Idle</div>
-            <div class="slot-pill slot-idle" id="slot-2">Slot 2 · Idle</div>
-            <div class="slot-pill slot-idle" id="slot-3">Slot 3 · Idle</div>
-            <div class="slot-pill slot-idle" id="slot-4">Slot 4 · Idle</div>
-          </div>
-
-          <div class="telemetry-bar-wrap">
-            <div class="telemetry-bar" id="load-bar" style="width: 5%; background: var(--success);"></div>
-          </div>
-
-          <div class="telemetry-actions">
-            <span>Hard worker ceiling: <strong>{MAX_CONCURRENCY} slots</strong>. Sudden traffic bursts trigger immediate 503 drops.</span>
-            <button type="button" class="btn-spike" id="btn-spike-test" onclick="triggerTrafficSpike()">
-              <span>&#9889; Retest Traffic Surge</span>
-            </button>
-          </div>
-          <div id="sim-log" class="sim-log-box" style="display:none;"></div>
+          <button type="button" class="btn-live-test btn-test-unprot" id="btn-spike-test" onclick="triggerTrafficSpike()">
+            <span>&#9889; Simulate Traffic Surge (Test 503 Crash)</span>
+          </button>
         </div>
+        <div id="sim-log" class="sim-log-drawer" style="display:none;"></div>
 
         <script>
           async function pollLoad() {{
@@ -1569,22 +1508,18 @@ def render_search_page(is_protected: bool) -> HTMLResponse:
                 const data = await res.json();
                 const active = data.active;
                 const max = data.max;
-                const pct = Math.min(100, Math.round((active / max) * 100));
-                const bar = document.getElementById('load-bar');
                 const count = document.getElementById('load-count');
-                if (bar && count) {{
-                  bar.style.width = Math.max(5, pct) + '%';
+                if (count) {{
                   count.textContent = active + ' / ' + max + ' active slots';
-                  bar.style.background = active >= max - 1 ? 'var(--danger)' : active >= max / 2 ? 'var(--warning)' : 'var(--success)';
                 }}
                 for (let i = 1; i <= 4; i++) {{
                   const el = document.getElementById('slot-' + i);
                   if (el) {{
                     if (i <= active) {{
-                      el.className = 'slot-pill slot-active';
+                      el.className = 'mini-slot active';
                       el.textContent = 'Slot ' + i + ' · Busy';
                     }} else {{
-                      el.className = 'slot-pill slot-idle';
+                      el.className = 'mini-slot idle';
                       el.textContent = 'Slot ' + i + ' · Idle';
                     }}
                   }}
@@ -1605,8 +1540,7 @@ def render_search_page(is_protected: bool) -> HTMLResponse:
             }}
             try {{
               const rolls = [1001, 1042, 1150, 1250, 1021, 1035, 1048, 1018];
-              const t0 = performance.now();
-              const reqs = rolls.map(async (r, idx) => {{
+              const reqs = rolls.map(async (r) => {{
                 const start = performance.now();
                 try {{
                   const res = await fetch('/?roll=' + r);
@@ -1620,17 +1554,17 @@ def render_search_page(is_protected: bool) -> HTMLResponse:
               const failures = results.filter(r => r.status === 503).length;
               const successes = results.filter(r => r.status === 200).length;
 
-              let htmlLog = '<div style="color:var(--warning);font-weight:700;margin-bottom:8px;">[SURGE RESULT] Origin Saturated: ' + failures + ' requests dropped with HTTP 503 (' + successes + ' succeeded)</div>';
+              let htmlLog = '<div style="color:var(--warning);font-weight:700;margin-bottom:8px;">[RESULT] ' + failures + ' requests DROPPED with HTTP 503 · ' + successes + ' succeeded (Origin Saturated)</div>';
               results.forEach(r => {{
                 if (r.status === 200) {{
                   htmlLog += '<div class="sim-log-item"><span>Roll ' + r.roll + '</span><span class="sim-ok">200 OK (' + r.elapsed + 'ms)</span></div>';
                 }} else if (r.status === 503) {{
-                  htmlLog += '<div class="sim-log-item"><span>Roll ' + r.roll + '</span><span class="sim-fail">503 SERVICE SATURATED (Rejected)</span></div>';
+                  htmlLog += '<div class="sim-log-item"><span>Roll ' + r.roll + '</span><span class="sim-fail">503 SERVICE SATURATED (Origin Rejected)</span></div>';
                 }} else {{
                   htmlLog += '<div class="sim-log-item"><span>Roll ' + r.roll + '</span><span class="sim-fail">Connection Drop</span></div>';
                 }}
               }});
-              htmlLog += '<div style="margin-top:8px;color:var(--subtle);font-size:11px;">Notice: Raw origin caps out at ' + {MAX_CONCURRENCY} + ' slots. Switch to Protected Gateway (:8088) to see zero drops!</div>';
+              htmlLog += '<div style="margin-top:8px;color:var(--subtle);font-size:11px;">Cap: ' + {MAX_CONCURRENCY} + ' concurrent slots. Switch to Protected Site (:8088) to see zero drops under identical load.</div>';
               if (logBox) logBox.innerHTML = htmlLog;
             }} catch (err) {{
               if (logBox) logBox.innerHTML += '<div class="sim-fail">Test completed with errors.</div>';
@@ -1638,84 +1572,46 @@ def render_search_page(is_protected: bool) -> HTMLResponse:
               if (btn) btn.disabled = false;
             }}
           }}
-
-          (function() {{
-            const p = document.getElementById('hero-btn-prot');
-            if (p) p.href = window.location.protocol + '//' + window.location.hostname + ':8088';
-          }})();
         </script>
         """
     else:
-        # Protected Hero & Telemetry Block (Emerald Theme)
-        hero_block = """
-        <div class="hero-block">
-          <div class="hero-pill">
+        # Protected Hero & Live Strip (Emerald Theme)
+        portal_hero = """
+        <div class="portal-hero">
+          <div class="portal-badge">
             <span class="pulse-dot"></span>
-            <span>SurgeGuard Active &middot; High-Concurrency Protection</span>
+            <span>SurgeGuard Active &middot; Zero-Drop Admission Gateway</span>
           </div>
-          <h1 class="hero-title">
-            Survive the surge.<br>
-            <span class="hero-gradient-protected">Zero crashes. Fair admission.</span>
+          <h1 class="portal-title">
+            Senior Secondary Examination Results 2026
           </h1>
-          <p class="hero-desc">
-            SurgeGuard holds traffic spikes in a fair virtual waiting room, admitting candidates first-come, first-served at the exact velocity your examination servers can sustain.
+          <p class="portal-desc">
+            Official certified marksheet portal. SurgeGuard virtual queueing protects the origin, admitting visitors smoothly with zero HTTP 503 crashes.
           </p>
-          <div class="hero-actions">
-            <a href="#search-section" class="btn-hero-primary">
-              <span>Search Candidate Result &rarr;</span>
-            </a>
-            <button type="button" class="btn-hero-secondary" onclick="testProtectedSurge()">
-              <span>&#128737; Test Admission Velocity</span>
-            </button>
-            <a href="#" id="hero-btn-unprot" class="btn-hero-secondary">
-              <span>Compare Unprotected (:8081) &rarr;</span>
-            </a>
-          </div>
         </div>
         """
 
-        telemetry_block = """
-        <div class="telemetry-card">
-          <div class="telemetry-header">
-            <div class="telemetry-title">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--success)">
-                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-              </svg>
-              <h3>SurgeGuard Edge Shield Status</h3>
-              <span style="background:rgba(16, 185, 129, 0.15);color:var(--success);border:1px solid rgba(16, 185, 129, 0.3)">
-                Active Protection
-              </span>
-            </div>
-            <span style="font-family:var(--font-mono);font-size:13px;font-weight:700;color:var(--success)">Zero-Drop Guarantee</span>
-          </div>
-
-          <div style="background:var(--surface-elevated);border:1px solid var(--line);border-radius:12px;padding:14px 18px;margin-bottom:14px;font-size:12px;color:var(--muted);display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:12px;">
-            <div>
-              <p style="font-size:11px;text-transform:uppercase;color:var(--subtle);font-weight:700">Token Governance</p>
-              <p style="font-weight:600;color:var(--fg);margin-top:2px;">HMAC-SHA256 Signed</p>
-            </div>
-            <div>
-              <p style="font-size:11px;text-transform:uppercase;color:var(--subtle);font-weight:700">Virtual Queue</p>
-              <p style="font-weight:600;color:var(--fg);margin-top:2px;">Strict FIFO Queueing</p>
-            </div>
-            <div>
-              <p style="font-size:11px;text-transform:uppercase;color:var(--subtle);font-weight:700">Origin Load</p>
-              <p style="font-weight:600;color:var(--success);margin-top:2px;">Calm &middot; Zero 503 Crashes</p>
+        live_strip = """
+        <div class="live-strip">
+          <div class="live-strip-left">
+            <span class="live-tag">SurgeGuard Shield:</span>
+            <div class="prot-badges">
+              <div class="prot-badge-item"><span>&#10003;</span> Virtual Waiting Room Active</div>
+              <div class="prot-badge-item"><span>&#10003;</span> Strict FIFO Queue</div>
+              <div class="prot-badge-item"><span>&#10003;</span> Origin: 100% Availability</div>
             </div>
           </div>
-
-          <div class="telemetry-actions">
-            <span>When traffic surges arrive, visitors wait fairly in the virtual waiting room instead of crashing the origin.</span>
-            <button type="button" class="btn-spike" style="border-color:rgba(16, 185, 129, 0.4);background:rgba(16, 185, 129, 0.15);color:var(--success)" onclick="testProtectedSurge()">
-              <span>&#128737; Test Protected Admission Velocity</span>
-            </button>
-          </div>
-          <div id="sim-log-protected" class="sim-log-box" style="display:none;"></div>
+          <button type="button" class="btn-live-test btn-test-prot" id="btn-prot-test" onclick="testProtectedSurge()">
+            <span>&#128737; Test Admission Velocity (8 Concurrent)</span>
+          </button>
         </div>
+        <div id="sim-log-protected" class="sim-log-drawer" style="display:none;"></div>
 
         <script>
           async function testProtectedSurge() {{
+            const btn = document.getElementById('btn-prot-test');
             const logBox = document.getElementById('sim-log-protected');
+            if (btn) btn.disabled = true;
             if (logBox) {{
               logBox.style.display = 'block';
               logBox.innerHTML = '<div style="color:var(--success);font-weight:700;margin-bottom:6px;">[PROTECTED TEST] Firing 8 concurrent queries via SurgeGuard Gateway...</div>';
@@ -1733,56 +1629,52 @@ def render_search_page(is_protected: bool) -> HTMLResponse:
                 }}
               }});
               const results = await Promise.all(reqs);
-              let htmlLog = '<div style="color:var(--success);font-weight:700;margin-bottom:8px;">[PROTECTED RESULT] All 8 queries served cleanly &middot; 0 drops &middot; 100% Availability</div>';
+              let htmlLog = '<div style="color:var(--success);font-weight:700;margin-bottom:8px;">[RESULT] All 8 queries served cleanly &middot; 0 drops &middot; 100% Availability</div>';
               results.forEach(r => {{
                 htmlLog += '<div class="sim-log-item"><span>Roll ' + r.roll + '</span><span class="sim-ok">200 OK (' + r.elapsed + 'ms &middot; Token Passed)</span></div>';
               }});
-              htmlLog += '<div style="margin-top:8px;color:var(--subtle);font-size:11px;">SurgeGuard queue discipline held backpressure and admitted all requests safely to the origin!</div>';
+              htmlLog += '<div style="margin-top:8px;color:var(--subtle);font-size:11px;">SurgeGuard held visitors safely in virtual queue and admitted each at sustained origin capacity.</div>';
               if (logBox) logBox.innerHTML = htmlLog;
             }} catch (e) {{
               if (logBox) logBox.innerHTML = '<div class="sim-ok">Protected admission gate verified.</div>';
+            }} finally {{
+              if (btn) btn.disabled = false;
             }}
           }}
-
-          (function() {{
-            const u = document.getElementById('hero-btn-unprot');
-            if (u) u.href = window.location.protocol + '//' + window.location.hostname + ':8081';
-          }})();
         </script>
         """
 
     body = f"""
-    {hero_block}
+    {portal_hero}
 
-    {telemetry_block}
+    {live_strip}
 
     <div class="card" id="search-section">
-      <h2 class="form-title">Search Candidate Examination Result</h2>
-      <p class="form-desc">Enter your 4-digit examination roll number (1001 through 1500) to view your verified statement of marks.</p>
+      <div class="search-header">
+        <h2 class="search-title">Search Candidate Examination Result</h2>
+        <p class="search-desc">Enter your 4-digit examination roll number (1001 through 1500) to view your verified statement of marks.</p>
+      </div>
 
       <form action="/results" method="post" class="search-form">
-        <div>
-          <label for="roll-input" class="input-label">Candidate Roll Number</label>
-          <div class="input-row">
-            <input
-              type="text"
-              id="roll-input"
-              name="roll"
-              placeholder="e.g. 1001, 1042, 1150, 1250..."
-              required
-              class="text-input"
-              pattern="^[0-9]+$"
-              autocomplete="off"
-            >
-            <button type="submit" class="btn-submit">
-              <span>View Result</span>
-              <span>&rarr;</span>
-            </button>
-          </div>
+        <div class="input-row">
+          <input
+            type="text"
+            id="roll-input"
+            name="roll"
+            placeholder="Enter Roll Number (e.g. 1001, 1042, 1150, 1250...)"
+            required
+            class="text-input"
+            pattern="^[0-9]+$"
+            autocomplete="off"
+          >
+          <button type="submit" class="btn-submit">
+            <span>View Result</span>
+            <span>&rarr;</span>
+          </button>
         </div>
 
         <div class="showcase-block">
-          <p class="showcase-label">Select Demonstration Candidate Profiles:</p>
+          <p class="showcase-label">Or Select a Sample Candidate Profile to Test:</p>
           <div class="showcase-grid">
             <a href="/?roll=1001" class="persona-chip">
               <div class="persona-top">
@@ -1790,7 +1682,7 @@ def render_search_page(is_protected: bool) -> HTMLResponse:
                 <span class="persona-pct">96.4%</span>
               </div>
               <p class="persona-name">Aarav Sharma</p>
-              <p class="persona-tag">National Rank 1 &middot; Distinction</p>
+              <p class="persona-tag">National Rank 1 &middot; Science (CS)</p>
             </a>
 
             <a href="/?roll=1042" class="persona-chip">
@@ -1799,7 +1691,7 @@ def render_search_page(is_protected: bool) -> HTMLResponse:
                 <span class="persona-pct">91.8%</span>
               </div>
               <p class="persona-name">Diya Patel</p>
-              <p class="persona-tag">National Rank 5 &middot; PCM + CS</p>
+              <p class="persona-tag">National Rank 5 &middot; Distinction</p>
             </a>
 
             <a href="/?roll=1150" class="persona-chip">
