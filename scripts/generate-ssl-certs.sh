@@ -72,14 +72,14 @@ openssl req -x509 -nodes -days "$DAYS_VALID" \
   -out "$CERT_FILE" \
   -config "$CONFIG_FILE" 2>/dev/null
 
-# Apply restrictive permissions
-chmod 750 "$CERTS_DIR"
+# Apply permissions so nginx-unprivileged (UID 101) can read certificates
+chmod 755 "$CERTS_DIR"
 chmod 644 "$CERT_FILE"
-chmod 640 "$KEY_FILE"
+chmod 644 "$KEY_FILE"
 
-# Apply root ownership with nginx-unprivileged group read (101) if root
+# Ensure root ownership of certificate directory
 if [ "$(id -u)" -eq 0 ]; then
-  chown root:101 "$KEY_FILE" "$CERT_FILE" "$CERTS_DIR" 2>/dev/null || true
+  chown -R root:root "$CERTS_DIR" 2>/dev/null || true
 fi
 
 echo "[✓] TLS Certificate generated successfully!"
