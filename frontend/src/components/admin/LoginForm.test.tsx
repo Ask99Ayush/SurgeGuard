@@ -71,4 +71,23 @@ describe("LoginForm", () => {
     await userEvent.click(screen.getByRole("button", { name: /sign in/i }));
     expect(await screen.findByRole("alert")).toHaveTextContent(/too many attempts/i);
   });
+
+  it("signs in with root admin sudo access in one click", async () => {
+    const fetchMock = respond(200, { ok: true, redirect: "/dashboard" });
+    vi.stubGlobal("fetch", fetchMock);
+    const navigate = vi.fn();
+    render(<LoginForm next="/dashboard" navigate={navigate} />);
+    await userEvent.click(screen.getByRole("button", { name: /one-click root admin/i }));
+    expect(navigate).toHaveBeenCalledWith("/dashboard");
+    const init = (fetchMock.mock.calls[0] as unknown as [string, RequestInit])[1];
+    expect(JSON.parse(String(init.body))).toMatchObject({ username: "admin", password: "admin123" });
+  });
+
+  it("auto-fills admin credentials when clicking auto-fill", async () => {
+    render(<LoginForm next="/dashboard" />);
+    await userEvent.click(screen.getByRole("button", { name: /auto-fill credentials/i }));
+    expect(screen.getByLabelText("Username")).toHaveValue("admin");
+    expect(screen.getByLabelText("Password")).toHaveValue("admin123");
+  });
 });
+

@@ -26,6 +26,9 @@ infra/terraform/backend.tf
 # Credentials
 *.pem
 *.key
+*.csv
+*accessKeys*.csv
+*credentials*.csv
 credentials
 .aws/
 

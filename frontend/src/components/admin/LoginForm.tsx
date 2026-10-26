@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { Eye, Lock } from "lucide-react";
+import { Eye, Lock, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/primitives";
 import { RequestFailure, fetchJson } from "@/lib/client";
 
@@ -55,6 +55,17 @@ export function LoginForm({
     void login(demo.username, demo.password);
   }
 
+  function signInAsAdmin() {
+    setUsername("admin");
+    setPassword("admin123");
+    void login("admin", "admin123");
+  }
+
+  function fillAdmin() {
+    setUsername("admin");
+    setPassword("admin123");
+  }
+
   return (
     <form onSubmit={onSubmit} className="space-y-4" noValidate aria-describedby={error ? "login-error" : undefined}>
       <div>
@@ -95,6 +106,31 @@ export function LoginForm({
         <Lock className="size-4" aria-hidden />
         {busy ? "Signing in…" : "Sign in"}
       </Button>
+
+      {/* Exhibition & Presentation Quick Admin Access */}
+      <div className="pt-1">
+        <Button
+          type="button"
+          variant="secondary"
+          className="w-full border-accent/40 bg-accent/10 text-xs font-semibold text-accent hover:border-accent hover:bg-accent/20 transition-all flex items-center justify-center gap-2 py-2.5 shadow-sm"
+          onClick={signInAsAdmin}
+          disabled={busy}
+        >
+          <ShieldCheck className="size-4 text-accent" aria-hidden />
+          <span>⚡ One-Click Root Admin (Full Sudo Access)</span>
+        </Button>
+        <div className="mt-2 flex items-center justify-between text-[11px] text-subtle px-1">
+          <span>Admin: <strong className="text-muted font-mono">admin / admin123</strong></span>
+          <button
+            type="button"
+            onClick={fillAdmin}
+            className="text-accent hover:underline focus:outline-none font-medium cursor-pointer"
+          >
+            Auto-fill credentials
+          </button>
+        </div>
+      </div>
+
       {demo ? (
         <div className="pt-2">
           <div className="relative mb-3 flex items-center justify-center">
