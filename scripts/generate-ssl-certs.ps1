@@ -63,10 +63,7 @@ $configLines = @(
   'DNS.3 = surgeguard-direct.duckdns.org',
   'DNS.4 = surgeguard-admin.duckdns.org',
   'DNS.5 = surgeguard-monitor.duckdns.org',
-  'DNS.6 = protected-surgeguard.duckdns.org',
-  'DNS.7 = direct-surgeguard.duckdns.org',
-  'DNS.8 = monitor-surgeguard.duckdns.org',
-  'DNS.9 = localhost',
+  'DNS.6 = localhost',
   ('IP.1  = {0}' -f $PublicIp),
   'IP.2  = 127.0.0.1'
 )
