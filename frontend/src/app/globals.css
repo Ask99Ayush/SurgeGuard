@@ -19,6 +19,13 @@
   --success: #43c98b;
   --warning: #f2b84b;
   --danger: #ff626b;
+  --chart-blue: #3b82f6;
+  --chart-green: #10b981;
+  --chart-amber: #f59e0b;
+  --chart-cyan: #06b6d4;
+  --chart-red: #ef4444;
+  --chart-slate: #94a3b8;
+  --chart-purple: #8b5cf6;
 
   --radius-card: 16px;
   --radius-key: 14px;
@@ -45,6 +52,13 @@
   --success: #2ea069;
   --warning: #d97706;
   --danger: #dc2626;
+  --chart-blue: #2563eb;
+  --chart-green: #059669;
+  --chart-amber: #d97706;
+  --chart-cyan: #0891b2;
+  --chart-red: #dc2626;
+  --chart-slate: #64748b;
+  --chart-purple: #7c3aed;
 
   --radius-card: 16px;
   --radius-key: 14px;

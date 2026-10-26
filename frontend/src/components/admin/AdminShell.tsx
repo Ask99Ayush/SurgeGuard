@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Check, ChevronDown, Copy, Eye, LogOut, Menu, Moon, Sun, X } from "lucide-react";
+import { Check, ChevronDown, Copy, Eye, LogOut, Menu, Moon, ShieldCheck, Sun, X } from "lucide-react";
 import { RoleProvider } from "@/components/admin/RoleContext";
 import type { Overview } from "@/components/admin/types";
 import { Wordmark } from "@/components/Wordmark";
@@ -216,7 +216,15 @@ export function AdminShell({ username, role, children }: { username: string; rol
                     <Eye className="size-3" aria-hidden />
                     <span>Demo</span>
                   </span>
-                ) : null}
+                ) : (
+                  <span
+                    title="Full administrative & sudo privileges active"
+                    className="hidden sm:inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-[11px] font-medium text-emerald-400 shadow-xs"
+                  >
+                    <ShieldCheck className="size-3.5 text-emerald-400" aria-hidden />
+                    <span>Super Admin (Sudo)</span>
+                  </span>
+                )}
 
                 {/* Sleek 1-click Theme Toggle */}
                 <button
@@ -263,12 +271,19 @@ export function AdminShell({ username, role, children }: { username: string; rol
                       <div className="px-3 py-2">
                         <div className="flex items-center justify-between">
                           <p className="text-sm font-semibold text-foreground">{username}</p>
-                          <span className="rounded-full border border-border bg-surface-elevated px-2 py-0.5 text-[10px] font-medium uppercase text-muted">
-                            {role}
+                          <span
+                            className={cn(
+                              "rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase",
+                              role === "admin"
+                                ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400"
+                                : "border-border bg-surface-elevated text-muted",
+                            )}
+                          >
+                            {role === "admin" ? "Super Admin" : "Viewer"}
                           </span>
                         </div>
                         <p className="mt-0.5 text-xs text-subtle">
-                          {role === "viewer" ? "Read-only access" : "Full administrator"}
+                          {role === "viewer" ? "Read-only access" : "Full sudo privileges (state mutation unlocked)"}
                         </p>
                       </div>
 

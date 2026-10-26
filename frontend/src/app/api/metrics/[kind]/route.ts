@@ -1,7 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { errorResponse } from "@/lib/admin-api";
 import { requireSession } from "@/lib/auth-guard";
-import { QUERIES, RANGES, isQueryName, isRangeName, parsePromResult } from "@/lib/promql";
+import { getExhibitionMetricSeries, getExhibitionMetricStatus } from "@/lib/exhibition-data";
+import { type QueryName, type RangeName, QUERIES, RANGES, isQueryName, isRangeName, parsePromResult } from "@/lib/promql";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -11,7 +12,7 @@ type Params = { params: Promise<{ kind: string }> };
 async function prom(path: string): Promise<unknown> {
   const base = process.env.PROMETHEUS_URL?.replace(/\/$/, "");
   if (!base) throw new Error("not configured");
-  const res = await fetch(`${base}${path}`, { cache: "no-store", signal: AbortSignal.timeout(5000) });
+  const res = await fetch(`${base}${path}`, { cache: "no-store", signal: AbortSignal.timeout(3000) });
   if (!res.ok) throw new Error(`prometheus HTTP ${res.status}`);
   return res.json();
 }
@@ -74,6 +75,23 @@ export async function GET(request: NextRequest, { params }: Params) {
       );
     }
   } catch {
+    // Exhibition & presentation fallback: returns live simulation time-series if Prometheus is offline
+    if (kind === "range") {
+      const name = search.get("name") as QueryName;
+      const range = (search.get("range") ?? "1h") as RangeName;
+      if (isQueryName(name) && isRangeName(range)) {
+        return NextResponse.json({ name, range, series: getExhibitionMetricSeries(name, range) }, { headers: { "Cache-Control": "no-store" } });
+      }
+    }
+    if (kind === "instant") {
+      const name = search.get("name") as QueryName;
+      if (isQueryName(name)) {
+        return NextResponse.json({ name, series: getExhibitionMetricSeries(name, "5m") }, { headers: { "Cache-Control": "no-store" } });
+      }
+    }
+    if (kind === "status") {
+      return NextResponse.json(getExhibitionMetricStatus(), { headers: { "Cache-Control": "no-store" } });
+    }
     return unavailable();
   }
   return errorResponse(404, "not_found", "Unknown metrics endpoint.");

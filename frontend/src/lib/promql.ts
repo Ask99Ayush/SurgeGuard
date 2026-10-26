@@ -33,6 +33,7 @@ export const QUERIES = {
   origin_overload_rejections: "sum(rate(demo_overload_rejections_total[1m]))",
   origin_forbidden_rps: "sum(rate(demo_forbidden_total[1m]))",
   wait_p50_seconds: "histogram_quantile(0.50, sum by (le) (rate(surgeguard_queue_wait_seconds_bucket[5m])))",
+  tokens_expired: "sum(rate(surgeguard_visitors_expired_total[1m]))",
 } as const;
 
 export type QueryName = keyof typeof QUERIES;
