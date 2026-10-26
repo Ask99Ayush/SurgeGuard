@@ -1,16 +1,15 @@
 "use client";
 
-import { Laptop, Moon, Sun } from "lucide-react";
-import { useTheme, type ThemeMode } from "@/hooks/useTheme";
+import { Moon, Sun } from "lucide-react";
+import { useTheme } from "@/hooks/useTheme";
 import { cn } from "@/components/ui/primitives";
 
 export function ThemeToggle({ className, compact = false }: { className?: string; compact?: boolean }) {
-  const { theme, setTheme, mounted } = useTheme();
+  const { resolvedTheme, setTheme, mounted } = useTheme();
 
-  const modes: Array<{ mode: ThemeMode; label: string; icon: typeof Sun }> = [
+  const modes: Array<{ mode: "light" | "dark"; label: string; icon: typeof Sun }> = [
     { mode: "light", label: "Light", icon: Sun },
     { mode: "dark", label: "Dark", icon: Moon },
-    { mode: "system", label: "System", icon: Laptop },
   ];
 
   if (!mounted) {
@@ -39,7 +38,7 @@ export function ThemeToggle({ className, compact = false }: { className?: string
       )}
     >
       {modes.map(({ mode, label, icon: Icon }) => {
-        const active = theme === mode;
+        const active = resolvedTheme === mode;
         return (
           <button
             key={mode}

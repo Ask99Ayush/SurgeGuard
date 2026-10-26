@@ -110,7 +110,7 @@ def get_candidate(roll_str: str) -> dict | None:
         "Manoj & Poonam", "Ramesh & Geeta", "Ashok & Vandana", "Dinesh & Ritu"
     ]
     schools = [
-        "KIET Model Senior Secondary School, Delhi NCR",
+        "Delhi Model Senior Secondary School, Delhi NCR",
         "Delhi Public Collegiate School, Sector 4",
         "St. Xavier's Academic Senior School",
         "Kendriya Vidyalaya No. 1, Central Campus",

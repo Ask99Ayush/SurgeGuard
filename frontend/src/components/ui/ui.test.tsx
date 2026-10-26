@@ -88,18 +88,17 @@ describe("RangeSelect", () => {
 });
 
 describe("ThemeToggle", () => {
-  it("renders theme options and allows switching between light, dark, and system", async () => {
+  it("renders light and dark theme buttons and allows switching between them", async () => {
     render(<ThemeToggle />);
     const group = screen.getByRole("group", { name: /color theme/i });
     expect(group).toBeInTheDocument();
 
     const lightBtn = screen.getByTitle("Light theme");
     const darkBtn = screen.getByTitle("Dark theme");
-    const sysBtn = screen.getByTitle("System theme");
 
     expect(lightBtn).toBeInTheDocument();
     expect(darkBtn).toBeInTheDocument();
-    expect(sysBtn).toBeInTheDocument();
+    expect(screen.queryByTitle("System theme")).not.toBeInTheDocument();
 
     await userEvent.click(lightBtn);
     expect(lightBtn).toHaveAttribute("aria-pressed", "true");

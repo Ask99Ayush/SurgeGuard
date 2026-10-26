@@ -180,3 +180,18 @@ describe("prometheus parsing", () => {
     expect(() => parsePromResult({ status: "error" })).toThrow();
   });
 });
+
+describe("service URL resolution", () => {
+  it("resolves protected, direct origin, and grafana dashboard URLs", async () => {
+    const { getDirectOriginUrl, getGrafanaDashboardUrl, getProtectedSiteUrl, resolveServiceUrl } = await import("./urls");
+
+    // Server-side fallback defaults
+    expect(resolveServiceUrl(null, 8088)).toBe("http://3.109.184.177:8088");
+    expect(getProtectedSiteUrl("https://surgeguard.example.com")).toBe("https://surgeguard.example.com");
+    expect(getDirectOriginUrl(null)).toBe("http://3.109.184.177:8081");
+    expect(getGrafanaDashboardUrl("surgeguard-backends", "http://3.109.184.177:3001")).toBe(
+      "http://3.109.184.177:3001/d/surgeguard-backends"
+    );
+  });
+});
+
