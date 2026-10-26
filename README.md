@@ -6,9 +6,9 @@
 
 **An open-source, self-hosted virtual waiting room designed to protect websites from sudden traffic spikes through fair queueing and controlled admission.**
 
-Built for InnoTech '26 | Smart Solutions, Smarter Society
+Built by **Team InfraFusion** | InnoTech '26 | Smart Solutions, Smarter Society
 
-[Overview](#overview) · [Architecture](#system-architecture) · [Features](#key-features) · [Getting Started](#getting-started) · [Roadmap](#roadmap)
+[Overview](#overview) · [Architecture](#system-architecture) · [Features](#key-features) · [Live Demo](#4-access-local--live-cloud-services) · [Terraform Architecture](terraform.md) · [Getting Started](#getting-started) · [Roadmap](#roadmap)
 
 </div>
 
@@ -24,7 +24,8 @@ Built for InnoTech '26 | Smart Solutions, Smarter Society
 - [Request Lifecycle](#request-lifecycle)
 - [Technology Stack](#technology-stack)
 - [Repository Structure](#repository-structure)
-- [Getting Started](#getting-started)
+- [Getting Started & Live Services](#getting-started)
+- [AWS Cloud Infrastructure (Terraform)](#aws-cloud-infrastructure--terraform)
 - [Configuration](#configuration)
 - [Development Workflow](#development-workflow)
 - [Load Testing and Validation](#load-testing-and-validation)
@@ -94,11 +95,12 @@ SurgeGuard addresses this problem by controlling admission to the origin rather 
 | Backend Health Checks | Active checks with hysteresis. Admission scales with the healthy fraction and auto-pauses when no backend is healthy. |
 | Wait Estimates | Approximate wait computed only from measured admission throughput; shows "estimate unavailable" when there isn't enough data. |
 | Operator Console | Login-protected dashboard, queue table (filter, search, pagination, reject), backends, monitoring, settings, pause/resume with confirmation, and a projector-friendly Live view. |
-| Monitoring and Alerts | Prometheus metrics from every component, 6 provisioned Grafana dashboards, and 9 alert rules. |
+| Examination Demo Portal | Realistic National Examination Results 2026 demo portal showcasing Protected Gateway (:8088, Emerald theme, 0 drops) vs Direct Baseline Origin (:8081, Ruby theme, 4-slot limit, 503 drops). |
+| Monitoring and Alerts | Prometheus metrics from every component, 7 provisioned Grafana dashboards (including SRE side-by-side comparison), and 9 alert rules. |
 | Load Testing | k6 scenarios comparing unprotected and protected runs with an identical profile, plus backend-failure and fairness runs. |
-| Cloud Deployment | Terraform for an optional AWS layout (VPC, ALB, Auto Scaling host, SSM config), validated offline and never applied from this repository. |
+| Cloud Deployment | Production-grade Terraform Infrastructure as Code for AWS (VPC, ALB, EC2 target attachment, Auto Scaling Group, SSM Parameter Store secrets). See [terraform.md](terraform.md). |
 
-*All features above are implemented and tested locally. Cloud deployment has been validated with `terraform validate` only. See the [Roadmap](#roadmap) for remaining work.*
+*All features above are implemented and deployed. See the live demo links and [terraform.md](terraform.md) for complete architectural details.*
 
 ## System Architecture
 
@@ -208,6 +210,7 @@ The repository is organized by responsibility so that proxy configuration, queue
 surgeguard/
 |
 |-- README.md
+|-- terraform.md
 |-- LICENSE
 |-- .gitignore
 |-- .env.example
@@ -392,17 +395,31 @@ make up
 
 This builds every image, starts the stack, and waits until all services are healthy.
 
-### 4. Access Local Services
+### 4. Access Local & Live Cloud Services
 
-| Service | URL |
-|---|---|
-| SurgeGuard-protected application | http://localhost:8080 |
-| Unprotected demo application (local comparison only) | http://localhost:8081 |
-| Landing page and operator console | http://localhost:3000 |
-| Grafana | http://localhost:3001 |
-| Prometheus | http://localhost:9090 |
+#### Live Deployment (AWS EC2 - Asia Pacific Mumbai)
 
-Ports come from `.env` (`PROTECTED_PORT`, `DIRECT_PORT`, `FRONTEND_PORT`, …) and bind to `127.0.0.1` only.
+| Service | Live URL | Description |
+|---|---|---|
+| **SurgeGuard Protected Gateway (HTTPS)** | [https://surgeguard-innotech.duckdns.org](https://surgeguard-innotech.duckdns.org) | National Examination Board portal behind virtual waiting room (Self-signed HTTPS with SAN, zero drops) |
+| **SurgeGuard Direct Port (:8088)** | [https://3.109.184.177:8088](https://3.109.184.177:8088) | Direct edge port terminating HTTPS with self-signed certificate |
+| **Direct Baseline Origin (:8081)** | [http://3.109.184.177:8081](http://3.109.184.177:8081) | Raw origin without queue protection (Ruby theme, 4-slot limit for 503 crash testing) |
+| **Operator Console (:3000)** | [http://3.109.184.177:3000](http://3.109.184.177:3000) | Next.js 15 administrative management dashboard & real-time queue visualizer |
+| **Grafana SRE Observability (:3001)** | [http://3.109.184.177:3001](http://3.109.184.177:3001) | 7 comprehensive dashboards including side-by-side comparison |
+| **Public Custom Domain** | [https://surgeguard-innotech.duckdns.org](https://surgeguard-innotech.duckdns.org) | DuckDNS dynamic DNS alias pointing to 3.109.184.177 (HTTP :80 redirects to HTTPS :443) |
+
+
+#### Local Development Environment
+
+| Service | Local URL | Port Configuration |
+|---|---|---|
+| SurgeGuard-protected application | http://localhost:8080 (or :8088) | `PROTECTED_PORT` |
+| Unprotected demo application | http://localhost:8081 | `DIRECT_PORT` |
+| Landing page and operator console | http://localhost:3000 | `FRONTEND_PORT` |
+| Grafana SRE Observability | http://localhost:3001 | `GRAFANA_PORT` |
+| Prometheus Time-Series | http://localhost:9090 | `PROMETHEUS_PORT` |
+
+Ports come from `.env` (`PROTECTED_PORT`, `DIRECT_PORT`, `FRONTEND_PORT`, …) and bind to `127.0.0.1` locally.
 
 **Console logins** (at http://localhost:3000/login):
 
@@ -429,6 +446,30 @@ make down
 ```
 
 Use `make clean` (`docker compose down -v`) only when you intentionally want to remove named volumes and their stored data.
+
+---
+
+## AWS Cloud Infrastructure & Terraform
+
+SurgeGuard includes production-grade Infrastructure as Code (IaC) written in Terraform under [`infra/terraform/`](infra/terraform). Complete architectural diagrams, module specifications, security rules, and operational guides are documented in [**terraform.md**](terraform.md).
+
+### Live Deployment Architecture (`ap-south-1` Mumbai)
+- **Target Instance (`i-0d9a4f57ebcff0048`)**: Reuses the running Ubuntu EC2 host at `3.109.184.177` without recreation or data loss.
+- **Terraform Security Group (`sg-095cd8eb865168e49`)**: Controls ingress for port `22` (SSH), `80` (HTTP redirect), `443` (HTTPS TLS termination), `8088` (Protected Edge), `3000` (Admin Console), `3001` (Grafana), and `8081` (Direct demo backend).
+- **Strict Network Isolation**: Redis (`6379`) and Queue API (`8000`) have zero public ingress rules and remain strictly isolated within Docker internal networks.
+- **SSM Removal**: All AWS Systems Manager, SSM Parameter Store, and Session Manager dependencies have been eliminated from the deployment design.
+- **EC2-Local `.env`**: Configuration and production secrets are stored in a local `.env` on the EC2 host (`chmod 600`), completely excluded from Terraform state, Git, and container images.
+- **Manual SSH Administration**: Administration is performed via SSH public-key authentication using `SurgeGuard.pem` on port 22. Password authentication and root password login are disabled.
+- **Self-Signed HTTPS**: Nginx terminates TLS on port `443` using a 2048-bit self-signed certificate with Subject Alternative Names (SAN) matching `surgeguard-innotech.duckdns.org`. Port `80` automatically redirects (301) to HTTPS.
+- **Zero Paid Overhead**: No costly Application Load Balancer (`enable_alb = false`), NAT Gateway, or Auto Scaling Group is provisioned for HTTPS.
+
+### Terraform Modules
+- [`modules/security`](infra/terraform/modules/security): EC2 and ALB security group rules with granular port isolation.
+- [`modules/network`](infra/terraform/modules/network): Optional multi-AZ VPC module (`enable_vpc = false` when reusing existing VPC).
+- [`modules/alb`](infra/terraform/modules/alb): Optional Application Load Balancer module (`enable_alb = false`).
+- [`modules/compute`](infra/terraform/modules/compute): Optional ASG / Launch Template module without SSM dependencies (`enable_asg = false`).
+
+See [**terraform.md**](terraform.md) for full commands (`terraform init`, `validate`, `plan`, `apply`) and certificate trust instructions.
 
 ---
 
@@ -535,11 +576,12 @@ Setup details (hardware, VUs, duration, versions) are in [loadtest/README.md](lo
 
 ## Monitoring and Observability
 
-Prometheus and Grafana provide visibility into both traffic-management behaviour and backend health. Grafana provisions six dashboards:
-- `surgeguard-overview` — Overview & Health
-- `surgeguard-backends` — Edge & Traffic (per-origin load, connections, bypass)
-- `surgeguard-queue` — Queue & Tokens (FIFO depth, wait times, token lifecycle)
-- `surgeguard-resources` — Infrastructure (Redis memory, worker loop, CPU/RSS)
+Prometheus and Grafana provide deep visibility into both traffic-management behavior and backend health. Grafana provisions seven dedicated SRE dashboards:
+- `surgeguard-comparison` — **Side-by-Side SRE Comparison** (Direct Origin vs Protected Gateway live error rates, 503 drops, concurrency saturation, and latency percentiles)
+- `surgeguard-overview` — Overview & System Health
+- `surgeguard-backends` — Edge & Traffic (per-origin load, active worker slots, connection pools, bypass detection)
+- `surgeguard-queue` — Queue & Tokens (FIFO depth, wait times, token lifecycle, abandonment rates)
+- `surgeguard-resources` — Infrastructure (Redis memory, worker tick latency, CPU/RSS footprints)
 - `surgeguard-latency` — Latency & 5xx (percentile curves, status distribution, tail latency)
 - `surgeguard-failure` — Reliability & Chaos (fail-closed, auto-pause, recovery timing)
 
@@ -635,7 +677,7 @@ Details are in [docs/security.md](docs/security.md).
 
 ### Phase 4: Deployment and Reliability
 
-- [x] Terraform for AWS infrastructure (validated offline; not yet applied)
+- [x] Terraform for AWS infrastructure (dual deployment modes: single EC2 & multi-AZ ASG; see [terraform.md](terraform.md))
 - [x] CI workflows using GitHub Actions
 - [x] Security and dependency checks
 - [x] Redis persistence and recovery strategy (AOF, `noeviction`, worker restart recovery)
@@ -672,5 +714,7 @@ SurgeGuard is released under the MIT License. See the [LICENSE](LICENSE) file fo
 **SurgeGuard**
 
 *Keep the website available. Keep admission fair. Make performance measurable.*
+
+Built with dedication by **Team InfraFusion**
 
 </div>

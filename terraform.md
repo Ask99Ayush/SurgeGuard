@@ -1,239 +1,370 @@
-# SurgeGuard Infrastructure as Code (Terraform)
+# SurgeGuard — Infrastructure as Code, Domain, SSH & Self-Signed HTTPS
 
-Comprehensive guide to the AWS cloud architecture, Terraform modules, deployment modes, and operations for **SurgeGuard**.
-
----
-
-## 1. Executive Summary
-
-The Terraform code located in [`infra/terraform/`](file:///x:/Django/Django_Project/SurgeGuard/infra/terraform) provisions and manages the entire AWS cloud infrastructure for SurgeGuard. It is architected for **zero-downtime traffic absorption**, strict security isolation, and flexible deployment models.
-
-### Key Capabilities
-- **Dual Deployment Support**:
-  1. **Single-Instance Integration (Current Live Demo)**: Attaches an existing running EC2 instance (`i-0d9a4f57ebcff0048` at `3.109.184.177`) directly to an Application Load Balancer target group while managing security groups and domain routing.
-  2. **Production Multi-AZ Auto Scaling (Enterprise Greenfield)**: Creates a dedicated VPC with public/private subnets across multiple availability zones, NAT gateways, an Auto Scaling Group (ASG), and IAM roles with AWS Systems Manager (SSM) Parameter Store secret injection.
-- **Enterprise Edge Routing**: Public Application Load Balancer (ALB) terminating HTTP/80 and HTTPS/443 with automated 301 redirection and modern TLS 1.3/1.2 cipher policies.
-- **Defense in Depth**: Strict security group layering where backend instances only accept traffic forwarded from the ALB on protected port `8088`, with optional direct ingress for administrative and observability portals.
-- **Zero Secrets in User Data**: Compute nodes fetch runtime secrets dynamically from AWS SSM Parameter Store at boot, ensuring no credentials or keys are hardcoded in AMIs, launch templates, or version control.
+This document details the Terraform architecture, EC2 security groups, manual SSH administration, DuckDNS dynamic DNS resolution, self-signed TLS certificates, and Nginx reverse proxy configuration for **SurgeGuard** running in AWS `ap-south-1` (Mumbai).
 
 ---
 
-## 2. Infrastructure Architecture
+## 1. Architecture Overview
 
-```mermaid
-flowchart TD
-    subgraph Internet ["Public Internet & Visitors"]
-        V[Incoming Web Traffic]
-        A[Admin / SRE Engineers]
-    end
-
-    subgraph AWS ["AWS Cloud (ap-south-1)"]
-        subgraph PublicSubnets ["Public Subnets (Multi-AZ)"]
-            ALB["AWS Application Load Balancer (ALB)<br/>Ports 80 & 443<br/>SSL / TLS 1.3 Termination"]
-            NAT["AWS NAT Gateway<br/>(Outbound API & Package Updates)"]
-        end
-
-        subgraph SecurityGroups ["Security Groups"]
-            SG_ALB["ALB Security Group<br/>Ingress: 80, 443<br/>Egress: App Port 8088 only"]
-            SG_APP["App Security Group<br/>Ingress from ALB: 8088<br/>Direct Demo/SRE: 3000, 3001, 8081, 22"]
-        end
-
-        subgraph ComputeTier ["Compute Tier (EC2 or ASG)"]
-            subgraph Instance ["EC2 Instance (i-0d9a4f57ebcff0048)"]
-                NGINX["Nginx Edge Proxy (:8088)<br/>Admission Gate & Cryptographic HMAC Verification"]
-                QUEUE["Redis Queue Server (:6379)<br/>Deterministic FIFO Waiting Room"]
-                BACKEND["FastAPI Admission Backend (:8000)"]
-                FRONTEND["Next.js Operator Console (:3000)"]
-                GRAFANA["Grafana SRE Observability (:3001)"]
-                DEMO_PROT["Protected Demo Origin (:8080)"]
-                DEMO_UNPROT["Direct Raw Baseline Origin (:8081)"]
-            end
-        end
-
-        subgraph Management ["AWS Platform Services"]
-            SSM["AWS Systems Manager (SSM)<br/>Session Manager & Parameter Store"]
-            ACM["AWS Certificate Manager (ACM)<br/>Managed SSL/TLS Certificates"]
-        end
-    end
-
-    V -->|HTTP:80 / HTTPS:443| ALB
-    A -->|Direct Management| SG_APP
-    ALB -->|Forward to Target Group :8088| NGINX
-    ALB -.->|Managed By| ACM
-    NGINX <--> QUEUE
-    NGINX <--> BACKEND
-    Instance -.->|Session Manager Shell| SSM
-    Instance -->|Outbound HTTPS| NAT
+```
+                      +-------------------------------------------------------------+
+                      |         Internet / Client Browser (HTTPS / SSH)              |
+                      +-------------------------------------------------------------+
+                                       |                               |
+                   Port 22 (SSH)       |                               | Ports 80, 443, 8088, 3000, 3001
+            (Key: SurgeGuard.pem)     |                               |
+                                       v                               v
+                      +-------------------------------------------------------------+
+                      |       EC2 Instance: i-0d9a4f57ebcff0048 (m7i-flex.large)     |
+                      |       Public IP:    3.109.184.177                            |
+                      |       Domain:       surgeguard-innotech.duckdns.org          |
+                      |       OS:           Ubuntu 26.04 LTS                         |
+                      |                                                             |
+                      |  Security Groups:                                           |
+                      |   - sg-095cd8eb865168e49 (surgeguard-dev-app - Terraform)   |
+                      |   - sg-03048ded2a039015a (launch-wizard-12 - Preserved)     |
+                      +-------------------------------------------------------------+
+                                                       |
+                                  +--------------------+--------------------+
+                                  |                                         |
+                                  v                                         v
+               +--------------------------------------+   +------------------------------------+
+               | Port 80 (HTTP) -> Redirect           |   | Port 443 (HTTPS) -> TLS Terminate  |
+               | Nginx Container (:8080)              |   | Nginx Container (:8443)            |
+               | 301 Moved -> https://$host$uri       |   | Self-signed TLS Cert (SAN matches) |
+               +--------------------------------------+   +------------------------------------+
+                                                                    |
+                                        +---------------------------+---------------------------+
+                                        | (Auth Check /_sg_auth)                                | (Static Assets /_next)
+                                        v                                                       v
+                         +-----------------------------+                         +-----------------------------+
+                         |  FastAPI Admission API      |                         |  Next.js Web Console / UI   |
+                         |  Port 8000 (Docker Internal)|                         |  Port 3000 (edge network)   |
+                         +-----------------------------+                         +-----------------------------+
+                                        |                                                       |
+                                        v                                                       v
+                         +-----------------------------+                         +-----------------------------+
+                         |  Redis 7.4.2 (Token State)  |                         |  Prometheus & Grafana       |
+                         |  Port 6379 (Strictly Private|                         |  Ports 9090 & 3001          |
+                         +-----------------------------+                         +-----------------------------+
 ```
 
 ---
 
-## 3. Deployment Modes
+## 2. Infrastructure Inventory & Resources
 
-Terraform detects the mode automatically based on whether `existing_instance_id` is supplied:
-
-| Feature | Mode A: Existing Instance (Current Demo) | Mode B: Auto Scaling Production |
-| :--- | :--- | :--- |
-| **Trigger Variable** | `existing_instance_id != ""` | `existing_instance_id == ""` |
-| **Compute Target** | Attaches existing EC2 (`i-0d9a4f57ebcff0048`) | Multi-AZ Auto Scaling Group (ASG) |
-| **VPC & Subnets** | Uses existing VPC & Subnets | Provisions new VPC (`10.0.0.0/16`) + NAT Gateway |
-| **Capacity** | 1 dedicated EC2 instance | Elastic (`min_capacity` to `max_capacity`) |
-| **Use Case** | Hackathon showcase, live demo, low-cost staging | Production multi-node high availability |
-| **Resource Attachment** | `aws_lb_target_group_attachment.existing_ec2` | `aws_autoscaling_group.host` |
-
----
-
-## 4. Terraform Module Breakdown
-
-The code is organized into four clean, reusable Terraform modules under [`infra/terraform/modules/`](file:///x:/Django/Django_Project/SurgeGuard/infra/terraform/modules/):
-
-### 1. Network Module (`modules/network`)
-- **VPC Creation**: Dedicated CIDR block (`var.vpc_cidr`, default `10.0.0.0/16`) with DNS support and DNS hostnames enabled.
-- **Multi-AZ Subnets**: Creates paired `public` and `private` subnets across availability zones in the region (`ap-south-1a`, `ap-south-1b`, etc.).
-- **Gateways & Routing**:
-  - `aws_internet_gateway` attached to the VPC for public internet ingress/egress.
-  - Optional `aws_nat_gateway` with dedicated Elastic IP (`aws_eip`) for private instances to safely pull Docker images and security patches.
-  - Independent route tables for public and private tiers.
-- **Default Security Group Lockdown**: Automatically locks down the VPC's default security group (`aws_default_security_group`) to have zero ingress/egress, meeting CIS AWS Foundations benchmarks.
-
-### 2. Security Module (`modules/security`)
-Defines the strict network perimeter using modern `aws_vpc_security_group_ingress_rule` and `aws_vpc_security_group_egress_rule` resources:
-- **`alb_security_group`**:
-  - Ingress: Port 80 (HTTP) and Port 443 (HTTPS) from allowed CIDRs (`0.0.0.0/0`).
-  - Egress: Restricted solely to the application security group on the SurgeGuard edge port (`8088`).
-- **`app_security_group`**:
-  - Ingress from ALB: Accepts forwarded traffic on port `8088`.
-  - Direct Ingress (Configurable via `enable_direct_ingress`):
-    - `3000`: Next.js Operator Dashboard
-    - `3001`: Grafana SRE Observability Dashboards
-    - `8081`: Unprotected Raw Baseline Demo (for side-by-side stress comparison)
-    - `8088`: Direct Protected Gateway
-    - `22`: SSH (can be toggled via `enable_ssh`)
-  - Egress: Outbound HTTPS/443 and HTTP/80 for container registry access and package updates.
-
-### 3. Application Load Balancer Module (`modules/alb`)
-- **Load Balancer**: AWS Application Load Balancer deployed across public subnets with `drop_invalid_header_fields = true` for HTTP request smuggling defense.
-- **Target Group**: High-speed reverse proxy target group (`sgedge`) forwarding to Nginx on port `8088`.
-- **Health Checks**: Actively queries `/health` every 15 seconds (`timeout = 5s`, `healthy_threshold = 2`, `matcher = 200`).
-- **Listeners**:
-  - **HTTP (Port 80)**: Automatically redirects to HTTPS on port 443 when an SSL certificate is provided; forwards to port 8088 if plain HTTP.
-  - **HTTPS (Port 443)**: Enforces the AWS recommended modern TLS policy `ELBSecurityPolicy-TLS13-1-2-2021-06`.
-
-### 4. Compute Module (`modules/compute`)
-Used when spinning up greenfield auto-scaling nodes:
-- **IAM Instance Profile**:
-  - Attaches `AmazonSSMManagedInstanceCore` policy for zero-SSH management via AWS Systems Manager Session Manager.
-  - Grants scoped KMS decrypt permissions and SSM Parameter Store read access under `/surgeguard-dev/env/*`.
-- **Launch Template**:
-  - Configures `t3.medium` instances with encrypted `gp3` root volumes (30 GB).
-  - Enforces **IMDSv2** (`http_tokens = "required"`, `http_put_response_hop_limit = 1`) to eliminate SSRF token theft vulnerabilities.
-  - User Data script (`user-data.sh.tftpl`) boots Docker, pulls runtime configuration from Parameter Store, and launches the SurgeGuard stack.
-- **Auto Scaling Group**:
-  - Configured with `health_check_type = "ELB"` and rolling instance refresh (`instance_refresh`) for zero-downtime updates.
-
----
-
-## 5. Port and Ingress Matrix
-
-| Port | Service | Source | Purpose |
+| Component | Identifier | Status | Purpose |
 | :--- | :--- | :--- | :--- |
-| **80** | ALB / Nginx | Public (`0.0.0.0/0`) | Standard web ingress; redirects to 443 when SSL enabled |
-| **443** | ALB / Nginx | Public (`0.0.0.0/0`) | Secure HTTPS encrypted traffic |
-| **8088** | SurgeGuard Edge | ALB & Direct | Protected Gateway (Nginx admission gate + waiting room) |
-| **8081** | Demo Origin | Direct (`0.0.0.0/0`) | Unprotected Raw Baseline (4-slot limit for 503 demonstrations) |
-| **3000** | Next.js Console | Direct (`0.0.0.0/0`) | Operator Web Management Console |
-| **3001** | Grafana SRE | Direct (`0.0.0.0/0`) | Prometheus & SRE Observability Dashboards |
-| **22** | SSH / Admin | Allowed CIDRs | Remote administration (can also use AWS SSM Session Manager) |
-| **6379** | Redis Queue | Localhost only | Internal virtual waiting room state (never exposed externally) |
-| **8000** | Python Backend | Localhost only | Internal admission token API & metrics |
+| **AWS Region** | `ap-south-1` (Mumbai) | Active | Deployment location |
+| **EC2 Instance** | `i-0d9a4f57ebcff0048` | Running | Hosts Docker Compose stack (`m7i-flex.large`) |
+| **Public IP** | `3.109.184.177` | Static / Allocated | Primary IPv4 ingress |
+| **VPC** | `vpc-05d75fcdd443aa2a9` | Active | AWS Default VPC |
+| **Subnet** | `subnet-02e45f3e18dcaa427` | Active | Public Subnet in `ap-south-1a` |
+| **Domain** | `surgeguard-innotech.duckdns.org` | Resolved | DuckDNS record pointing to `3.109.184.177` |
+| **Terraform Security Group** | `sg-095cd8eb865168e49` | Attached | Manages ingress for 22, 80, 443, 8088, 3000, 3001, 8081 |
+| **SSH Key Pair** | `SurgeGuard` (`SurgeGuard.pem`) | Private | Public-key authentication for user `ubuntu` |
 
 ---
 
-## 6. Directory Layout
+## 3. Security Group Firewall Rules
 
-```text
-infra/terraform/
-├── main.tf                    # Root composition: invokes network, security, alb, compute
-├── locals.tf                  # Local helpers, AZ slicing, tag merges, safety check blocks
-├── variables.tf               # Input variable declarations with defaults and validations
-├── outputs.tf                 # DNS names, target groups, security group IDs, HTTPS URLs
-├── versions.tf                # Terraform (~> 1.5) and AWS provider (~> 5.0) constraints
-├── terraform.tfvars           # Active instance & network bindings (e.g., EC2 ID, VPC, Ports)
-├── terraform.tfvars.example   # Template for new environment configurations
-├── backend.tf.example         # S3 + DynamoDB remote state configuration example
-├── scripts/
-│   └── terraform-env.sh       # Bash utility to parse root .env into TF_VAR_* environment variables
-└── modules/
-    ├── network/               # VPC, IGW, NAT, subnets, route tables
-    ├── security/              # ALB and EC2 Security Groups with fine-grained rules
-    ├── alb/                   # AWS ALB, Target Groups, HTTP/HTTPS listeners, health checks
-    └── compute/               # IAM roles, Launch Template, IMDSv2, Auto Scaling Group
+Terraform manages `sg-095cd8eb865168e49` attached directly to network interface `eni-0e5e4d49cce7bad12`.
+
+### Ingress Rules
+
+| Protocol | Port | Source CIDR | Service | Notes |
+| :--- | :--- | :--- | :--- | :--- |
+| **TCP** | `22` | `0.0.0.0/0` | SSH Administration | Public-key authentication required. Password auth disabled. |
+| **TCP** | `80` | `0.0.0.0/0` | HTTP Web Ingress | Nginx listens on 8080; permanently redirects (301) to HTTPS. |
+| **TCP** | `443` | `0.0.0.0/0` | HTTPS TLS Entry Point | Nginx TLS termination on port 8443 with self-signed certificate. |
+| **TCP** | `8088` | `0.0.0.0/0` | SurgeGuard Protected Edge | Direct HTTPS access to SurgeGuard edge proxy. |
+| **TCP** | `3000` | `0.0.0.0/0` | Admin Web Console | Next.js operator and queue management dashboard. |
+| **TCP** | `3001` | `0.0.0.0/0` | Grafana Observability | SRE metrics dashboards (Prometheus backend). |
+| **TCP** | `8081` | `0.0.0.0/0` | Unprotected Demo Origin | Direct comparison origin without admission token validation. |
+
+### Private / Prohibited Services (Zero Ingress)
+
+| Service | Port | Network Boundary | Security Posture |
+| :--- | :--- | :--- | :--- |
+| **FastAPI Queue API** | `8000` | Docker Internal (`app`, `data`) | **STRICTLY PRIVATE**. Revoked from security group; no port exposure. |
+| **Redis Queue Store** | `6379` | Docker Internal (`data`) | **STRICTLY PRIVATE**. Unexposed to host; no security group ingress. |
+
+> [!CAUTION]
+> **SSH Attack Surface Warning:** Opening port `22` to `0.0.0.0/0` allows arbitrary Internet IP addresses to initiate SSH handshakes. While public-key authentication is enforced and password login is disabled, it is strongly recommended in production to restrict SSH ingress to your office or bastion CIDR (e.g. `your-ip/32`).
+
+---
+
+## 4. Removal of Systems Manager (SSM) Dependencies
+
+To eliminate unnecessary AWS service dependencies, simplify the deployment model, and adhere to zero-trust secret handling:
+
+1. **No SSM Managed Core Policy:** Removed `arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore` from IAM role attachments.
+2. **No SSM Parameter Store Reads:** User-data scripts and bootstrap processes do not query SSM Parameter Store.
+3. **No Session Manager Assumptions:** Management is strictly manual SSH via private key authentication.
+4. **No SSM AMI Lookups:** Terraform uses standard `aws_ami` data sources (`data.aws_ami.amazon_linux`) instead of SSM parameters.
+5. **No Paid Infrastructure:** Application Load Balancer (`enable_alb = false`), Auto Scaling Group (`enable_asg = false`), and NAT Gateways are disabled by default.
+
+---
+
+## 5. EC2-Local `.env` Configuration & Secret Hygiene
+
+Application secrets and environment variables are maintained in a dedicated `.env` file directly on the EC2 host.
+
+### Secret Management Rules
+- **Never committed to Git:** `.env`, `.env.*`, `*.key`, `*.pem`, `*.crt` are ignored in [.gitignore](file:///x:/Django/Django_Project/SurgeGuard/.gitignore).
+- **Never in Terraform State:** Production passwords, cryptographic signing keys, and token secrets are excluded from Terraform `.tfvars`, state files, and outputs.
+- **Restrictive File Permissions:** The `.env` file on EC2 is restricted with `chmod 600 .env` so that only the deploying user/root can read it.
+- **Docker Build Context:** `.dockerignore` excludes `.env` to prevent secrets from baking into image layers.
+
+### Creating `.env` for a Fresh Instance
+
+```bash
+# 1. SSH into the instance
+ssh -i SurgeGuard.pem ubuntu@3.109.184.177
+
+# 2. Navigate to project root
+cd /opt/surgeguard/app
+
+# 3. Copy template and restrict permissions immediately
+umask 077
+cp .env.example .env
+chmod 600 .env
+
+# 4. Populate required secrets (use openssl rand -hex 32)
+sed -i 's|^APP_ENV=.*|APP_ENV=production|' .env
+sed -i 's|^COOKIE_SECURE=.*|COOKIE_SECURE=true|' .env
+sed -i "s|^REDIS_PASSWORD=.*|REDIS_PASSWORD=$(openssl rand -hex 24)|" .env
+sed -i "s|^TOKEN_SIGNING_SECRET=.*|TOKEN_SIGNING_SECRET=$(openssl rand -hex 32)|" .env
+sed -i "s|^VISITOR_COOKIE_SECRET=.*|VISITOR_COOKIE_SECRET=$(openssl rand -hex 32)|" .env
+sed -i "s|^INTERNAL_AUTH_SECRET=.*|INTERNAL_AUTH_SECRET=$(openssl rand -hex 32)|" .env
+sed -i "s|^ADMIN_API_KEY=.*|ADMIN_API_KEY=$(openssl rand -hex 32)|" .env
+sed -i "s|^SESSION_SECRET=.*|SESSION_SECRET=$(openssl rand -hex 32)|" .env
+sed -i "s|^ORIGIN_SHARED_SECRET=.*|ORIGIN_SHARED_SECRET=$(openssl rand -hex 32)|" .env
+sed -i 's|^DOMAIN_NAME=.*|DOMAIN_NAME=surgeguard-innotech.duckdns.org|' .env
+sed -i 's|^EC2_PUBLIC_IP=.*|EC2_PUBLIC_IP=3.109.184.177|' .env
+sed -i 's|^PUBLIC_SITE_URL=.*|PUBLIC_SITE_URL=https://surgeguard-innotech.duckdns.org|' .env
 ```
 
 ---
 
-## 7. How to Use & Deploy
+## 6. Self-Signed TLS Certificate with SAN
 
-### Prerequisites
-1. [Terraform CLI](https://developer.hashicorp.com/terraform/downloads) (>= 1.5.0) installed.
-2. AWS CLI configured with valid credentials (`aws configure` or standard environment variables `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`).
+SurgeGuard terminates HTTPS at the Nginx reverse proxy using a 2048-bit RSA self-signed certificate that includes **Subject Alternative Names (SAN)** for the domain and public IP.
 
-### Standard Commands
+### Certificate Attributes
+- **Common Name (CN):** `surgeguard-innotech.duckdns.org`
+- **SAN DNS 1:** `surgeguard-innotech.duckdns.org`
+- **SAN DNS 2:** `localhost`
+- **SAN IP 1:** `3.109.184.177`
+- **SAN IP 2:** `127.0.0.1`
+- **Signature Algorithm:** `SHA256WithRSA`
+- **Validity:** 365 days
+- **Host Location:** `/opt/surgeguard/app/certs/surgeguard.crt` and `surgeguard.key`
+- **Nginx Container Path:** `/etc/nginx/certs/surgeguard.crt` and `surgeguard.key`
 
-#### Step 1: Initialize Terraform
-Downloads the AWS provider and configures module backends:
+### Generation Script
+
+Execute on the EC2 host:
+
+```bash
+bash scripts/generate-ssl-certs.sh
+```
+
+Or manually:
+
+```bash
+mkdir -p certs
+cat > /tmp/san.cnf <<EOF
+[req]
+default_bits       = 2048
+distinguished_name = req_distinguished_name
+prompt             = no
+x509_extensions    = v3_req
+
+[req_distinguished_name]
+CN = surgeguard-innotech.duckdns.org
+
+[v3_req]
+basicConstraints = CA:FALSE
+keyUsage         = nonRepudiation, digitalSignature, keyEncipherment
+extendedKeyUsage = serverAuth
+subjectAltName   = @alt_names
+
+[alt_names]
+DNS.1 = surgeguard-innotech.duckdns.org
+DNS.2 = localhost
+IP.1  = 3.109.184.177
+IP.2  = 127.0.0.1
+EOF
+
+openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+  -keyout certs/surgeguard.key \
+  -out certs/surgeguard.crt \
+  -config /tmp/san.cnf
+
+chmod 750 certs
+chmod 644 certs/surgeguard.crt
+chmod 640 certs/surgeguard.key
+rm /tmp/san.cnf
+```
+
+### Inspecting Certificate SAN & Expiry
+
+```bash
+# Check Subject Alternative Names
+openssl x509 -in certs/surgeguard.crt -noout -text | grep -A1 "Subject Alternative Name"
+
+# Check Expiration Date
+openssl x509 -in certs/surgeguard.crt -noout -dates
+```
+
+---
+
+## 7. Nginx TLS & Redirection Configuration
+
+In [proxy/nginx/templates/sg-site.conf.template](file:///x:/Django/Django_Project/SurgeGuard/proxy/nginx/templates/sg-site.conf.template):
+
+1. **Port 8080 (Mapped from host :80):**
+   ```nginx
+   server {
+       listen 8080;
+       server_name _;
+
+       location = /healthz {
+           default_type text/plain;
+           return 200 "ok\n";
+       }
+
+       location / {
+           return 301 https://$host$request_uri;
+       }
+   }
+   ```
+2. **Port 8443 (Mapped from host :443 and :8088):**
+   ```nginx
+   server {
+       listen 8443 ssl;
+       server_name _;
+
+       ssl_certificate /etc/nginx/certs/surgeguard.crt;
+       ssl_certificate_key /etc/nginx/certs/surgeguard.key;
+       ssl_protocols TLSv1.2 TLSv1.3;
+       ssl_prefer_server_ciphers on;
+       ssl_ciphers HIGH:!aNULL:!MD5;
+       ssl_session_cache shared:SSL:10m;
+       ssl_session_timeout 1d;
+
+       # Auto-redirect plain HTTP sent to HTTPS port
+       error_page 497 =301 https://$http_host$request_uri;
+
+       # Proxy to origin pool with admission token validation
+       ...
+   }
+   ```
+
+3. **Docker Compose Port Binding:**
+   ```yaml
+   nginx:
+     volumes:
+       - ./certs:/etc/nginx/certs:ro
+     ports:
+       - "${BIND_ADDRESS}:80:8080"
+       - "${BIND_ADDRESS}:443:8443"
+       - "${BIND_ADDRESS}:${PROTECTED_PORT}:8443"
+       - "${BIND_ADDRESS}:${DIRECT_PORT}:8081"
+   ```
+
+---
+
+## 8. DuckDNS IP Updates
+
+The domain `surgeguard-innotech.duckdns.org` maps directly to EC2 IP `3.109.184.177`.
+
+### Updating DuckDNS Records
+If the EC2 instance is rebooted without an Elastic IP and acquires a new IPv4:
+
+```bash
+# Update DuckDNS via HTTP API
+curl "https://www.duckdns.org/update?domains=surgeguard-innotech&token=YOUR_DUCKDNS_TOKEN&ip=NEW_EC2_IP"
+```
+
+### Verifying DNS Resolution
+
+```powershell
+Resolve-DnsName surgeguard-innotech.duckdns.org
+```
+
+---
+
+## 9. Browser Trust & Client Verification
+
+Because this is a **self-signed certificate**, browsers and automated HTTP clients will display a security warning (e.g. `NET::ERR_CERT_AUTHORITY_INVALID` in Google Chrome).
+
+### Expected Behavior
+- **Browser:** Displays *"Your connection is not private"*. Clicking *Advanced -> Proceed to surgeguard-innotech.duckdns.org (unsafe)* will establish the encrypted HTTPS session.
+- **cURL / CLI:**
+  ```bash
+  # Test with self-signed certificate inspection
+  curl.exe -Iv https://surgeguard-innotech.duckdns.org/
+
+  # Trusting explicitly using the host certificate
+  curl.exe --cacert certs/surgeguard.crt https://surgeguard-innotech.duckdns.org/
+  ```
+
+### Safe Trust Installation (Optional)
+To trust the certificate without warnings:
+- **Windows:** Double click `surgeguard.crt` -> *Install Certificate* -> *Place all certificates in the following store* -> *Trusted Root Certification Authorities*.
+- **Ubuntu / Debian:**
+  ```bash
+  sudo cp certs/surgeguard.crt /usr/local/share/ca-certificates/surgeguard.crt
+  sudo update-ca-certificates
+  ```
+
+---
+
+## 10. Terraform Deployment & Validation Commands
+
+All infrastructure files are located under [infra/terraform/](file:///x:/Django/Django_Project/SurgeGuard/infra/terraform/).
+
 ```bash
 cd infra/terraform
-terraform init
-```
 
-#### Step 2: Validate Configuration
-Checks syntax and module references without hitting AWS:
-```bash
+# 1. Format code
+terraform fmt
+
+# 2. Validate syntax & resource schemas
 terraform validate
-```
 
-#### Step 3: Preview Infrastructure Changes (Plan)
-Runs a dry-run plan showing exactly which AWS resources will be created or modified:
-```bash
+# 3. Review proposed changes
 terraform plan
-```
-*(Or use the helper script to automatically pull variables from `.env`)*:
-```bash
-bash scripts/terraform-env.sh plan
-```
 
-#### Step 4: Apply Changes to AWS
-Provisions the ALB, Security Groups, and Target Group attachments:
-```bash
-terraform apply
-```
-
-#### Step 5: View Outputs
-Retrieve the public DNS name, security group IDs, and URLs:
-```bash
-terraform output
-```
-
-#### Step 6: Teardown / Cleanup
-Destroys all Terraform-managed resources safely when no longer needed:
-```bash
-terraform destroy
+# 4. Apply changes (attaches SG to EC2, opens 80/443/22)
+terraform apply -auto-approve
 ```
 
 ---
 
-## 8. Current AWS Cluster State
+## 11. Troubleshooting & Rollback
 
-The live deployment in `infra/terraform/terraform.tfvars` matches the active EC2 demo instance:
-- **Region**: `ap-south-1` (Asia Pacific - Mumbai)
-- **EC2 Instance ID**: `i-0d9a4f57ebcff0048`
-- **EC2 Public IP**: `3.109.184.177`
-- **Existing VPC ID**: `vpc-05d75fcdd443aa2a9`
-- **Existing Subnets**: `subnet-02e45f3e18dcaa427`, `subnet-0b4c8dc922043e62e`, `subnet-0ba644fadb1e355a5`
-- **Domain Name**: `surgeguard-innotech.duckdns.org`
-- **Project & Environment**: `surgeguard-dev`
-- **Protected Edge Port**: `8088`
-- **Direct Origin Port**: `8081`
-- **Console Port**: `3000`
-- **Grafana Port**: `3001`
+### If Port 80 / 443 Do Not Connect
+1. Verify Docker container status:
+   ```bash
+   docker compose ps nginx
+   ```
+2. Verify host listening ports:
+   ```bash
+   sudo ss -tulpn | grep -E ':80|:443|:8088'
+   ```
+3. Check Nginx container error logs:
+   ```bash
+   docker compose logs --tail=50 nginx
+   ```
+
+### Rolling Back Changes
+1. If the new security group causes issues, the original security group `sg-03048ded2a039015a` is still attached to the instance and was preserved.
+2. In `infra/terraform`:
+   ```bash
+   # Revert terraform changes without touching EC2
+   terraform apply -var="enable_ssh=true"
+   ```
+3. `terraform destroy` is **strictly prohibited** to protect production state.

@@ -9,38 +9,88 @@ make health    # status + route probes
 make down      # stop (keeps volumes); make clean also deletes volumes
 ```
 
-## AWS (written and validated offline; never applied from this repository)
+---
 
-`infra/terraform` creates: a VPC with public/private subnets in ≥2 AZs, optional single NAT gateway,
-an ALB (HTTP, or HTTPS + HTTP→HTTPS redirect when `certificate_arn` is set), security groups that only
-let the ALB reach the host's protected port, and an Auto Scaling group (default 1 host) from a launch
-template with IMDSv2, encrypted gp3 root volume, an instance role limited to reading one Parameter
-Store path, and Session Manager access instead of SSH. The AMI comes from a public SSM parameter
-(Amazon Linux 2023), not a hardcoded id. The boot script installs Docker, clones `app_source_url` at
-`app_version`, builds `.env` from Parameter Store and runs `docker compose up`.
+## AWS Deployment (Live: `ap-south-1` Mumbai)
 
-What this does **not** do (planned): ElastiCache/shared Redis for more than one host, DNS records,
-WAF, CloudWatch alarms, image registry/CD pipeline. The unprotected `DIRECT_PORT` is not reachable
-(security groups allow only the protected port), but set `BIND_ADDRESS=127.0.0.1` anyway.
+SurgeGuard is deployed directly on an existing EC2 instance in AWS Mumbai without costly ALB, NAT Gateway, or SSM dependencies.
 
-Validated here with: `terraform fmt -check -recursive`, `terraform init -backend=false`, `terraform validate`
-(`make terraform-validate`). No plan or apply has been run and no AWS credentials were used.
+### Key Deployment Identifiers
+- **EC2 Instance:** `i-0d9a4f57ebcff0048` (`m7i-flex.large`, Ubuntu 26.04 LTS)
+- **Public IPv4:** `3.109.184.177`
+- **Domain:** `surgeguard-innotech.duckdns.org` (resolves to `3.109.184.177`)
+- **VPC / Subnet:** `vpc-05d75fcdd443aa2a9` / `subnet-02e45f3e18dcaa427`
+- **Terraform Security Group:** `sg-095cd8eb865168e49`
+- **Manual SSH Key:** `SurgeGuard.pem` (User: `ubuntu`)
 
-### Connecting AWS later: exact steps
+---
 
-1. Authenticate with temporary credentials (SSO or an assumed role): `aws sso login --profile <p>`; `export AWS_PROFILE=<p>`.
-2. Create the state bucket (versioned, SSE-KMS, restricted policy). Copy `infra/terraform/backend.tf.example` to `backend.tf` and fill it in.
-3. `cp infra/terraform/.env.example infra/terraform/.env` and fill in region, CIDRs, instance type, `APP_SOURCE_URL`, `APP_VERSION`, optional `CERTIFICATE_ARN`.
-4. Create the runtime config in Parameter Store, one **SecureString** per `.env` key under `/<name>/env/` (default `<project>-<environment>`), e.g. generate a production `.env` with `APP_ENV=production COOKIE_SECURE=true` and load it:
-   ```bash
-   while IFS='=' read -r k v; do [[ "$k" =~ ^[A-Z] ]] && aws ssm put-parameter --type SecureString --overwrite \
-     --name "/surgeguard-dev/env/$k" --value "${v//\'/}"; done < .env.production
-   ```
-   Do not set `DIRECT_PORT` exposure or `BIND_ADDRESS=0.0.0.0` for the direct path.
-5. `cd infra/terraform && scripts/terraform-env.sh init` (now with the real backend).
-6. `scripts/terraform-env.sh plan -out=tfplan`, review, then `scripts/terraform-env.sh apply tfplan`.
-7. Point your domain at the `load_balancer_dns_name` output. Health: the ALB checks `/waiting-room`.
-8. Tear down: `scripts/terraform-env.sh destroy` (disable `ALB_DELETION_PROTECTION` first).
+## 1. Secrets & EC2-Local `.env` Handling
 
-Cost note: the ALB, NAT gateway and EC2 instance bill per hour. Any cloud test results go in
-`docs/testing.md` with measured cost; until then they are `TBD`.
+All production secrets reside in a single EC2-local `.env` file on the instance:
+- **Restrictive Permissions:** `chmod 600 .env` ensures only the owner can read secrets.
+- **Git Exclusions:** `.env` and `certs/` are ignored in `.gitignore`.
+- **Zero Terraform Leaks:** No secrets are passed to Terraform or stored in state.
+- **SSM Removal:** Systems Manager and Parameter Store dependencies are completely removed.
+
+### Initializing `.env` on a Fresh Host:
+```bash
+ssh -i SurgeGuard.pem ubuntu@3.109.184.177
+cd /opt/surgeguard/app
+umask 077
+cp .env.example .env
+chmod 600 .env
+# Set APP_ENV=production, COOKIE_SECURE=true, and generate 32-byte hex secrets
+```
+
+---
+
+## 2. Manual SSH Access
+
+- Security Group opens TCP `22` to `0.0.0.0/0`.
+- SSH public-key authentication is strictly required (`SurgeGuard.pem`).
+- SSH password authentication and root login are disabled.
+- **Security Recommendation:** For production, restrict source CIDR to your specific IP:
+  ```hcl
+  # In infra/terraform/terraform.tfvars
+  allowed_ingress_cidrs = ["YOUR_IP/32"]
+  ```
+
+---
+
+## 3. Self-Signed HTTPS & Nginx Reverse Proxy
+
+Nginx terminates TLS using a host-generated self-signed certificate with **Subject Alternative Names (SAN)**:
+- **Domain SAN:** `surgeguard-innotech.duckdns.org`
+- **IP SAN:** `3.109.184.177`, `127.0.0.1`
+- **Port 80:** Permanent 301 redirect to `https://$host$request_uri`
+- **Port 443:** HTTPS TLS termination (maps to Nginx container `8443`)
+- **Port 8088:** Protected gateway (direct HTTPS)
+- **Private Services:** FastAPI API (`8000`) and Redis (`6379`) have NO ingress firewall rules and remain strictly private to Docker networks.
+
+### Certificate Generation on EC2:
+```bash
+bash scripts/generate-ssl-certs.sh
+```
+
+### Starting the Stack:
+```bash
+docker compose up -d --build nginx
+```
+
+---
+
+## 4. Terraform Workflow
+
+Infrastructure changes are managed via Terraform without creating paid ALBs or replacing the running instance:
+
+```bash
+cd infra/terraform
+terraform fmt
+terraform validate
+terraform plan
+terraform apply
+```
+
+> [!CAUTION]
+> **Never run `terraform destroy`:** The instance holds live queue data and volumes.
