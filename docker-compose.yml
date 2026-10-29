@@ -165,12 +165,22 @@ services:
       DEMO_QUEUE_TIMEOUT_MS: ${DEMO_QUEUE_TIMEOUT_MS}
       ORIGIN_SHARED_SECRET: ${ORIGIN_SHARED_SECRET:?missing ORIGIN_SHARED_SECRET}
 
+  demo-direct:
+    <<: *demo
+    environment:
+      INSTANCE_NAME: demo-direct
+      DEMO_MAX_CONCURRENCY: ${DEMO_MAX_CONCURRENCY}
+      DEMO_WORK_MS: ${DEMO_WORK_MS}
+      DEMO_QUEUE_TIMEOUT_MS: ${DEMO_QUEUE_TIMEOUT_MS}
+      ORIGIN_SHARED_SECRET: ${ORIGIN_SHARED_SECRET:?missing ORIGIN_SHARED_SECRET}
+
   nginx:
     build:
       context: ./proxy/nginx
     image: surgeguard/nginx:local
     environment:
       BACKEND_URLS: ${BACKEND_URLS}
+      DIRECT_BACKEND_URLS: ${DIRECT_BACKEND_URLS:-http://demo-direct:8000}
       NGINX_API_UPSTREAM: api:${API_PORT}
       NGINX_FRONTEND_UPSTREAM: frontend:3000
       PROXY_RATE_LIMIT_RPS: ${PROXY_RATE_LIMIT_RPS}
@@ -195,6 +205,7 @@ services:
       api: {condition: service_healthy}
       demo-1: {condition: service_healthy}
       demo-2: {condition: service_healthy}
+      demo-direct: {condition: service_healthy}
     restart: unless-stopped
     logging: *logging
     security_opt:
@@ -233,9 +244,10 @@ services:
       PROMETHEUS_URL: ${PROMETHEUS_URL}
       PUBLIC_SITE_URL: ${PUBLIC_SITE_URL}
       PUBLIC_GRAFANA_URL: ${PUBLIC_GRAFANA_URL}
+      DEMO_DIRECT_INTERNAL_URL: http://nginx:8081
     ports:
       - "${BIND_ADDRESS}:${FRONTEND_PORT}:3000"
-    networks: [edge, app]
+    networks: [edge, app, origin]
     depends_on:
       api: {condition: service_healthy}
     restart: unless-stopped
@@ -343,9 +355,15 @@ services:
     image: grafana/k6:1.0.0
     profiles: [loadtest]
     user: "${K6_UID:-12345}:${K6_GID:-12345}"
+    environment:
+      - GUARDED_URL=${GUARDED_URL:-https://nginx:8443}
+      - UNGUARDED_URL=${UNGUARDED_URL:-http://nginx:8081}
+      - SSL_CERT_FILE=/certs/surgeguard.crt
     volumes:
       - ./loadtest:/loadtest
-    working_dir: /loadtest
+      - ./k6:/k6
+      - ./certs:/certs:ro
+    working_dir: /k6
     networks: [edge]
     deploy:
       resources:

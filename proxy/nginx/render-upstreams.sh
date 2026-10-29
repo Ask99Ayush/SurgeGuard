@@ -25,6 +25,19 @@ for url in $BACKEND_URLS; do
 done
 IFS=$old_ifs
 
+direct_urls="${DIRECT_BACKEND_URLS:-$BACKEND_URLS}"
+direct_servers=""
+IFS=','
+for url in $direct_urls; do
+  hostport=$(printf '%s' "$url" | sed -e 's#^[a-zA-Z]*://##' -e 's#/.*$##' | tr -d ' ')
+  case "$hostport" in
+    *[!A-Za-z0-9.:_-]*|"") echo "render-upstreams: invalid direct backend '$url'" >&2; exit 1 ;;
+  esac
+  direct_servers="${direct_servers}    server ${hostport} resolve max_fails=2 fail_timeout=10s;
+"
+done
+IFS=$old_ifs
+
 cat > "$out" <<EOF
 # Generated at container start by render-upstreams.sh. Do not edit.
 resolver 127.0.0.11 valid=10s ipv6=off;
@@ -34,10 +47,10 @@ upstream origin_pool {
 ${servers}    keepalive 32;
 }
 
-# Same backends for the unprotected comparison path (separate passive-health state).
+# Isolated or designated backends for the unprotected comparison path.
 upstream origin_direct {
     zone origin_direct 128k;
-${servers}    keepalive 32;
+${direct_servers}    keepalive 32;
 }
 
 upstream sg_api {

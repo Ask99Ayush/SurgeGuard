@@ -8,10 +8,11 @@ import { ButtonLink } from "@/components/ui/primitives";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 
 const links = [
-  { href: "#features", label: "Features" },
-  { href: "#simulator", label: "Simulator" },
-  { href: "#comparison", label: "Comparison" },
-  { href: "#architecture", label: "Architecture" },
+  { href: "/demo", label: "Live Demo" },
+  { href: "/#features", label: "Features" },
+  { href: "/#simulator", label: "Simulator" },
+  { href: "/#comparison", label: "Comparison" },
+  { href: "/#architecture", label: "Architecture" },
 ];
 
 export function SiteNav() {

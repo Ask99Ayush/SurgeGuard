@@ -65,6 +65,18 @@ loadtest: ## Unprotected vs protected surge only (no failure run)
 demo: ## Full 5-minute demo: unprotected, protected, backend failure, fairness, summary
 	@bash scripts/demo.sh all
 
+k6-smoke: ## Run k6 smoke test across guarded and unguarded endpoints
+	$(COMPOSE) --profile loadtest run --rm k6 run scripts/smoke.js
+
+k6-unguarded: ## Run k6 load test against unguarded direct origin
+	$(COMPOSE) --profile loadtest run --rm k6 run scripts/unguarded-load.js
+
+k6-guarded: ## Run k6 load test against SurgeGuard protected gateway
+	$(COMPOSE) --profile loadtest run --rm k6 run scripts/guarded-load.js
+
+k6-compare: ## Run k6 sequential comparison load test
+	$(COMPOSE) --profile loadtest run --rm k6 run scripts/comparison.js
+
 e2e: ## Playwright end-to-end tests against the running stack
 	cd frontend && npx playwright test
 
