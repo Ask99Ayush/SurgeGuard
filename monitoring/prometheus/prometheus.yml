@@ -17,7 +17,7 @@ scrape_configs:
 
   - job_name: demo-origin
     static_configs:
-      - targets: ["demo-1:8000", "demo-2:8000"]
+      - targets: ["demo-1:8000", "demo-2:8000", "demo-direct:8000"]
 
   - job_name: redis
     static_configs:

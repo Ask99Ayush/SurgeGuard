@@ -244,6 +244,7 @@ services:
       PROMETHEUS_URL: ${PROMETHEUS_URL}
       PUBLIC_SITE_URL: ${PUBLIC_SITE_URL}
       PUBLIC_GRAFANA_URL: ${PUBLIC_GRAFANA_URL}
+      PUBLIC_DIRECT_URL: ${PUBLIC_DIRECT_URL:-https://surgeguard-direct.duckdns.org}
       DEMO_DIRECT_INTERNAL_URL: http://nginx:8081
     ports:
       - "${BIND_ADDRESS}:${FRONTEND_PORT}:3000"

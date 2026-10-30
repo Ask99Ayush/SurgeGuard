@@ -17,6 +17,7 @@ import { Timeline } from "@/components/admin/dashboard/Timeline";
 import { TheGate } from "@/components/admin/dashboard/TheGate";
 import { WhatHappening } from "@/components/admin/dashboard/WhatHappening";
 import { CommandPalette } from "@/components/admin/dashboard/CommandPalette";
+import { ComparisonDashboard } from "@/components/admin/ComparisonDashboard";
 import { Button, ButtonLink } from "@/components/ui/primitives";
 import { getDirectOriginUrl, getGrafanaBaseUrl, getProtectedSiteUrl } from "@/lib/urls";
 import { usePolling } from "@/hooks/usePolling";
@@ -190,6 +191,14 @@ export function DashboardView({
             <WhatHappening overview={o} backends={backends.data} />
           </div>
         )}
+      </div>
+
+      {/* ──────────────────────────────────────────────
+          ZONE 5: LIVE COMPARISON DASHBOARD
+          Side-by-side Guarded vs Unguarded telemetry
+      ─────────────────────────────────────────────── */}
+      <div className="mt-6 pt-6 border-t border-border">
+        <ComparisonDashboard />
       </div>
 
       {/* ──────────────────────────────────────────────

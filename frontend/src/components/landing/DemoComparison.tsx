@@ -320,11 +320,11 @@ export function DemoComparison({
               </span>
               <div>
                 <p className="text-xs font-semibold text-foreground">Execute k6 Performance Comparison Suite</p>
-                <p className="text-xs text-muted">Run sequential load tests comparing both endpoints under identical surge profiles.</p>
+                <p className="text-xs text-muted">Run concurrent load tests against both Guarded and Unguarded endpoints simultaneously.</p>
               </div>
             </div>
             <code className="rounded-lg border border-border bg-background px-3 py-1.5 font-mono text-xs text-foreground">
-              k6 run k6/scripts/comparison.js
+              k6 run k6/scripts/live-demo.js
             </code>
           </div>
         </div>

@@ -10,31 +10,32 @@ import { sleep } from "k6";
 import { Counter, Rate, Trend } from "k6/metrics";
 
 // ─── Target URLs ─────────────────────────────────────────────────────────────
-// Supports explicit environment variables, falling back to sensible host or container defaults.
+// Real public domains are the defaults for EC2/external runs.
+// Set GUARDED_URL / UNGUARDED_URL env vars to override for local container use.
 export const GUARDED_URL = (
   __ENV.GUARDED_URL ||
   __ENV.TARGET_GUARDED ||
   __ENV.TARGET ||
-  "https://localhost:8080"
+  "https://surgeguard-protected.duckdns.org"
 ).replace(/\/$/, "");
 
 export const UNGUARDED_URL = (
   __ENV.UNGUARDED_URL ||
   __ENV.TARGET_UNGUARDED ||
-  "http://127.0.0.1:8081"
+  "https://surgeguard-direct.duckdns.org"
 ).replace(/\/$/, "");
 
 // ─── Safety and Tunables ─────────────────────────────────────────────────────
-// Conservative default load to safeguard EC2 / local host resources.
 export const DEFAULT_VUS = Math.min(Number(__ENV.VUS || 10), Number(__ENV.MAX_VUS || 100));
 export const RAMP_DURATION = __ENV.RAMP || "10s";
 export const HOLD_DURATION = __ENV.HOLD || "25s";
 export const COOLDOWN_DURATION = __ENV.COOLDOWN || "5s";
 export const THINK_SECONDS = Number(__ENV.THINK || 0.5);
 export const MAX_QUEUE_WAIT_SECONDS = Number(__ENV.MAX_QUEUE_WAIT || 60);
-export const REQUEST_TIMEOUT = __ENV.REQUEST_TIMEOUT || "10s";
+export const REQUEST_TIMEOUT = __ENV.REQUEST_TIMEOUT || "15s";
 
-// TLS verification: disabled only when explicitly requested
+// TLS verification: disabled only when explicitly requested via INSECURE_TLS=true.
+// Never disable globally in production — pass the CA cert via --ca-cert instead.
 export const INSECURE_TLS = __ENV.INSECURE_TLS === "true";
 
 // ─── Custom Telemetry Metrics ────────────────────────────────────────────────
@@ -70,6 +71,8 @@ export function parseDurationSeconds(durationStr, defaultSec = 10) {
 
 /**
  * Robust error check for HTTP responses.
+ * Returns true if the response represents a connection failure or server error.
+ * Note: 429 is a rate-limit, not a connection failure — treat as error for our purposes.
  */
 export function isHttpError(res) {
   return !res || res.status === 0 || res.status >= 500 || res.status === 429;
@@ -93,7 +96,7 @@ export function enterAndPassQueue(baseUrl, tags = {}) {
   });
 
   const joinFailed = isHttpError(res);
-  queueJoinErrors.add(joinFailed, tags);
+  queueJoinErrors.add(joinFailed ? 1 : 0, tags);
   let hasJoined = !joinFailed && res.status === 200;
 
   while (Date.now() - started < MAX_QUEUE_WAIT_SECONDS * 1000) {
@@ -128,7 +131,7 @@ export function enterAndPassQueue(baseUrl, tags = {}) {
         tags: { ...tags, stage: "queue_retry" },
       });
       const retryFailed = isHttpError(res);
-      queueJoinErrors.add(retryFailed, tags);
+      queueJoinErrors.add(retryFailed ? 1 : 0, tags);
       if (!retryFailed && res.status === 200) {
         hasJoined = true;
       }
@@ -146,7 +149,7 @@ export function enterAndPassQueue(baseUrl, tags = {}) {
 }
 
 /**
- * Safe number formatting helper.
+ * Safe number formatting helper. Returns "n/a" for null/undefined/NaN.
  */
 export function fmt(val, digits = 0, suffix = "") {
   if (val === null || val === undefined || Number.isNaN(Number(val))) return "n/a";
@@ -158,13 +161,30 @@ export function fmt(val, digits = 0, suffix = "") {
  */
 export function extractMetrics(data, label, extra = {}) {
   const getMetric = (name) => (data.metrics[name] ? data.metrics[name].values : null);
-  const getCount = (name) => (getMetric(name) ? getMetric(name).count : 0);
+  const getCount = (name) => {
+    const m = getMetric(name);
+    if (!m) return 0;
+    // Counter metrics report `count` in values
+    return m.count !== undefined ? m.count : 0;
+  };
 
   const gDur = getMetric("guarded_page_duration");
   const gErr = getMetric("guarded_page_errors");
   const uDur = getMetric("unguarded_page_duration");
   const uErr = getMetric("unguarded_page_errors");
   const qWait = getMetric("guarded_queue_wait");
+
+  // Total guarded requests = admitted visits (for guarded, only admitted visitors make page requests)
+  const gAdmitted = getCount("guarded_admitted_count");
+  const gOk = getCount("guarded_page_ok");
+  const g503 = getCount("guarded_503_count");
+  // Total guarded page requests = ok + 503 + (error rate * total attempts)
+  const gTotal = gOk + g503 + (gErr ? Math.round(gErr.passes || 0) : 0);
+
+  // Total unguarded requests = ok + 503 + connection errors
+  const uOk = getCount("unguarded_page_ok");
+  const u503 = getCount("unguarded_503_count");
+  const uTotal = uOk + u503 + (uErr ? Math.round(uErr.passes || 0) : 0);
 
   return {
     label,
@@ -177,21 +197,21 @@ export function extractMetrics(data, label, extra = {}) {
       unguardedUrl: UNGUARDED_URL,
     },
     guarded: {
-      requests: getCount("guarded_page_ok") + (gErr ? gErr.passes : 0),
-      success200: getCount("guarded_page_ok"),
-      error503: getCount("guarded_503_count"),
-      errorRate: gErr ? gErr.rate : 0,
+      requests: gTotal,
+      success200: gOk,
+      error503: g503,
+      errorRate: gErr ? gErr.rate : null,
       p50Ms: gDur ? gDur.med : null,
       p95Ms: gDur ? gDur["p(95)"] : null,
       p99Ms: gDur ? gDur["p(99)"] : null,
-      admittedVisitors: getCount("guarded_admitted_count"),
+      admittedVisitors: gAdmitted,
       queueWaitP95Ms: qWait ? qWait["p(95)"] : null,
     },
     unguarded: {
-      requests: getCount("unguarded_page_ok") + (uErr ? uErr.passes : 0),
-      success200: getCount("unguarded_page_ok"),
-      error503: getCount("unguarded_503_count"),
-      errorRate: uErr ? uErr.rate : 0,
+      requests: uTotal,
+      success200: uOk,
+      error503: u503,
+      errorRate: uErr ? uErr.rate : null,
       p50Ms: uDur ? uDur.med : null,
       p95Ms: uDur ? uDur["p(95)"] : null,
       p99Ms: uDur ? uDur["p(99)"] : null,

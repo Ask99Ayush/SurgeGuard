@@ -96,10 +96,10 @@ export function runUnguarded() {
   unguardedDuration.add(elapsed);
 
   if (res.status === 200) {
-    unguardedOk.inc();
+    unguardedOk.add(1);
     unguardedErrors.add(0);
   } else if (res.status === 503) {
-    unguarded503Count.inc();
+    unguarded503Count.add(1);
     unguardedErrors.add(1);
   } else {
     unguardedErrors.add(isHttpError(res) ? 1 : 0);
@@ -120,7 +120,8 @@ export function runGuarded() {
     tags: { phase: "guarded_edge_gate" },
   });
   check(initial, {
-    "redirected to waiting room (302)": (r) => r.status === 302 || (r.status === 301 && r.headers.Location && r.headers.Location.startsWith("https://")),
+    "redirected to waiting room (302)": (r) =>
+      r.status === 302 || (r.status === 301 && r.headers.Location && r.headers.Location.startsWith("https://")),
   });
 
   const passed = enterAndPassQueue(GUARDED_URL, { phase: "guarded_queue" });
@@ -142,10 +143,10 @@ export function runGuarded() {
   guardedDuration.add(elapsed);
 
   if (res.status === 200) {
-    guardedOk.inc();
+    guardedOk.add(1);
     guardedErrors.add(0);
   } else if (res.status === 503) {
-    guarded503Count.inc();
+    guarded503Count.add(1);
     guardedErrors.add(1);
   } else {
     guardedErrors.add(isHttpError(res) ? 1 : 0);
@@ -173,7 +174,7 @@ export function handleSummary(data) {
     row("Protection Mechanism", "None (Raw Origin)", "SurgeGuard Virtual Queue"),
     row("Successful Pages (200)", u.success200, g.success200),
     row("Server Rejections (503)", u.error503, g.error503),
-    row("Page Error Rate", fmt(u.errorRate * 100, 2, "%"), fmt(g.errorRate * 100, 2, "%")),
+    row("Page Error Rate", u.errorRate !== null ? fmt(u.errorRate * 100, 2, "%") : "n/a", g.errorRate !== null ? fmt(g.errorRate * 100, 2, "%") : "n/a"),
     row("Page Latency p50", fmt(u.p50Ms, 0, " ms"), fmt(g.p50Ms, 0, " ms")),
     row("Page Latency p95", fmt(u.p95Ms, 0, " ms"), fmt(g.p95Ms, 0, " ms")),
     row("Page Latency p99", fmt(u.p99Ms, 0, " ms"), fmt(g.p99Ms, 0, " ms")),

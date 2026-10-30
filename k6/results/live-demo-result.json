@@ -1,0 +1,41 @@
+{
+  "label": "live-demo",
+  "timestamp": "2026-10-30T06:19:00.000Z",
+  "config": {
+    "unguardedVus": 10,
+    "guardedVus": 10,
+    "ramp": "10s",
+    "hold": "25s",
+    "cooldown": "5s",
+    "guardedUrl": "https://surgeguard-protected.duckdns.org",
+    "unguardedUrl": "https://surgeguard-direct.duckdns.org"
+  },
+  "unguarded": {
+    "totalRequests": null,
+    "success200": null,
+    "error503": null,
+    "connectionErrors": null,
+    "timeouts": null,
+    "errorRate": null,
+    "p50Ms": null,
+    "p95Ms": null,
+    "p99Ms": null,
+    "status": "Ready (run k6/scripts/live-demo.js to populate)"
+  },
+  "guarded": {
+    "totalPageRequests": null,
+    "success200": null,
+    "error503": null,
+    "admittedVisitors": null,
+    "admittedPageOk": null,
+    "queueTimeouts": null,
+    "queueRejections": null,
+    "errorRate": null,
+    "p50Ms": null,
+    "p95Ms": null,
+    "p99Ms": null,
+    "queueWaitP95Ms": null,
+    "status": "Ready (run k6/scripts/live-demo.js to populate)"
+  }
+}
+

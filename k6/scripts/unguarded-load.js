@@ -43,7 +43,7 @@ export const options = {
   insecureSkipTLSVerify: INSECURE_TLS,
   summaryTrendStats: ["med", "p(90)", "p(95)", "p(99)", "max"],
   thresholds: {
-    // Informational threshold: Track 503 error rate without deliberately aborting execution
+    // Informational threshold: Track error rate without aborting execution
     unguarded_page_errors: ["rate>=0"],
     unguarded_page_duration: ["p(95)>=0"],
   },
@@ -65,10 +65,13 @@ export default function () {
   unguardedDuration.add(durationMs);
 
   if (res.status === 200) {
-    unguardedOk.inc();
+    unguardedOk.add(1);
     unguardedErrors.add(0);
   } else if (res.status === 503) {
-    unguarded503Count.inc();
+    unguarded503Count.add(1);
+    unguardedErrors.add(1);
+  } else if (res.status === 0) {
+    // Connection failure (timeout, refused, etc.)
     unguardedErrors.add(1);
   } else {
     unguardedErrors.add(isHttpError(res) ? 1 : 0);
@@ -87,9 +90,10 @@ export function handleSummary(data) {
     `Target:               ${UNGUARDED_URL}`,
     `Configured VUs:       ${DEFAULT_VUS} (Ramp: ${RAMP_DURATION}, Hold: ${HOLD_DURATION})`,
     `Total HTTP Requests:  ${summary.totalHttpRequests}`,
+    `Measured Requests:    ${u.requests}`,
     `200 OK Responses:     ${u.success200}`,
     `503 Saturated Drops:  ${u.error503}`,
-    `Error Percentage:     ${fmt(u.errorRate * 100, 2, "%")}`,
+    `Error Percentage:     ${u.errorRate !== null ? fmt(u.errorRate * 100, 2, "%") : "n/a"}`,
     `Latency p50:          ${fmt(u.p50Ms, 0, " ms")}`,
     `Latency p95:          ${fmt(u.p95Ms, 0, " ms")}`,
     `Latency p99:          ${fmt(u.p99Ms, 0, " ms")}`,

@@ -6,14 +6,14 @@ This directory contains the production-grade k6 performance testing suite for Su
 
 ## 1. Architecture & Endpoints
 
-SurgeGuard protects high-stakes web applications against sudden concurrency surges using a token-bucket virtual waiting room backed by Redis and validated in sub-millisecond time at Nginx edge.
+SurgeGuard protects high-stakes web applications against sudden concurrency surges using a token-bucket virtual waiting room backed by Redis and validated in sub-millisecond time at the Nginx edge.
 
-| Surface | Port / Hostname | Path / Routing | Architecture Role |
+| Surface | Default Domain / Port | Internal Route | Protection Role |
 | :--- | :--- | :--- | :--- |
-| **Demo 1 — Guarded** | `https://localhost:8080` (or `https://surgeguard-protected.duckdns.org:8443`) | `/` &rarr; `auth_request /_sg_auth` &rarr; `origin_pool` (`demo-1`, `demo-2`) | Intercepted by Nginx edge. Unauthenticated visitors enter virtual waiting room (`/waiting-room`), receive cryptographic admission tokens, and access protected origins with **zero HTTP 503 drops**. |
-| **Demo 2 — Unguarded** | `http://localhost:8081` (or `https://surgeguard-direct.duckdns.org:8443`) | `/` &rarr; `origin_direct` (`demo-direct`) | Bypasses admission gate. Concurrency is capped at `DEMO_MAX_CONCURRENCY` (default 8). Excess concurrent requests wait up to `DEMO_QUEUE_TIMEOUT_MS` (default 1500ms) before returning **HTTP 503 Service Overloaded**. |
-| **Admin Console** | `http://localhost:3000/dashboard` | Next.js operator UI | Real-time queue visualizer, rate adjustment, and manual pause/resume. |
-| **Grafana Metrics** | `http://localhost:3001` | Prometheus Grafana | Real-time SRE dashboards for origin latency, queue length, and 503 drops. |
+| **Demo 1 — Guarded** | `https://surgeguard-protected.duckdns.org` (or `:8443` / `https://localhost:8080`) | `/` &rarr; `auth_request /_sg_auth` &rarr; `origin_pool` (`demo-1`, `demo-2`) | **PROTECTED**: Intercepted by Nginx edge gate. Visitors without valid HMAC tokens receive HTTP 302 &rarr; `/waiting-room`. Admitted visitors browse with **zero HTTP 503 drops**. |
+| **Demo 2 — Unguarded** | `https://surgeguard-direct.duckdns.org` (or `:8443` / `http://127.0.0.1:8081`) | `/` &rarr; `origin_direct` (`demo-direct`) | **UNGUARDED**: Bypasses queue. Concurrency is limited by application semaphore (`DEMO_MAX_CONCURRENCY=8`). Excess load triggers genuine **HTTP 503 Service Overloaded**. |
+| **Control Center** | `https://surgeguard-innotech.duckdns.org` (or `http://localhost:3000`) | `/dashboard`, `/live`, `/demo` | Real-time queue visualizer, side-by-side comparison dashboard, admission rate controls, and manual pause/resume. |
+| **Grafana Metrics** | `https://surgeguard-monitor.duckdns.org` (or `http://localhost:3001`) | Prometheus Grafana | Real-time SRE dashboards for origin latency, queue length, and 503 drops. |
 
 ---
 
@@ -26,127 +26,161 @@ k6/
 │   └── options.js          # Centralized configuration, safety limits, metrics, and queue helpers
 ├── scripts/
 │   ├── smoke.js            # Minimal reachability and status verification (1 VU)
-│   ├── unguarded-load.js   # Controlled load test against the raw direct origin
-│   ├── guarded-load.js     # Load test exercising waiting room join, polling, and admitted access
-│   └── comparison.js       # Sequential comparison run avoiding host resource contention
+│   ├── live-demo.js        # SIMULTANEOUS guarded + unguarded surge (Live Demo)
+│   ├── comparison.js       # Sequential comparison run (no resource contention)
+│   ├── unguarded-load.js   # Controlled load test against raw direct origin
+│   └── guarded-load.js     # Load test exercising waiting room join, polling, and admitted access
 └── results/
-    └── .gitkeep            # Directory for non-sensitive JSON test summaries
+    ├── live-demo-report.md # Markdown comparison report from live demonstration
+    ├── live-demo-result.json # Raw machine-readable JSON metrics
+    └── .gitkeep
 ```
 
 ---
 
-## 3. Prerequisites & Execution Methods
+## 3. Quick Start & Demonstration Commands
 
-### Option A: Via Docker Compose (Recommended on EC2 / Linux)
+All scripts default to the real public DuckDNS domains. You can override them via environment variables at any time.
 
-The `docker-compose.yml` stack includes an isolated `k6` container service attached to the `edge` network with `./certs:/certs:ro` mounted for seamless CA verification:
+### A. Smoke Test (Reachability & Authentication Gate)
+
+Validates that both domains are healthy, unauthenticated visitors are redirected to the waiting room, and queue polling functions correctly.
 
 ```bash
-# Ensure services are up
-docker compose up -d
+# Using native k6 with repository TLS certificate:
+k6 run --ca-cert certs/surgeguard.crt k6/scripts/smoke.js
 
-# Run Smoke Test
+# Using Docker Compose:
 docker compose --profile loadtest run --rm k6 run scripts/smoke.js
-
-# Run Unguarded Load Test
-docker compose --profile loadtest run --rm k6 run scripts/unguarded-load.js
-
-# Run Guarded Load Test
-docker compose --profile loadtest run --rm k6 run scripts/guarded-load.js
-
-# Run Sequential Comparison Test
-docker compose --profile loadtest run --rm k6 run scripts/comparison.js
 ```
 
-### Option B: Via Native k6 CLI (Local Machine)
+### B. Simultaneous Live Demonstration (Primary Demo Command)
 
-If `k6` is installed on your local workstation:
+Runs two independent scenarios **concurrently**:
+- **Scenario A (Unguarded)**: Sends surge traffic directly to the unprotected origin. Triggers real HTTP 503 drops and high latency under controlled load.
+- **Scenario B (Guarded)**: Sends equivalent traffic through SurgeGuard. Visitors join the waiting room, are admitted at origin capacity, and browse with zero 503 rejections.
 
 ```bash
-cd k6
+# Single command to launch the live simultaneous demonstration:
+k6 run --ca-cert certs/surgeguard.crt k6/scripts/live-demo.js
 
-# 1. Smoke test (validates both endpoints)
-k6 run --ca-cert ../certs/surgeguard.crt scripts/smoke.js
+# Using Docker Compose (on EC2):
+docker compose --profile loadtest run --rm k6 run scripts/live-demo.js
+```
 
-# 2. Unguarded load test (targets direct origin :8081)
-k6 run scripts/unguarded-load.js
+### C. Unguarded-Only Load Test
 
-# 3. Guarded load test (targets protected gateway :8080)
-k6 run --ca-cert ../certs/surgeguard.crt scripts/guarded-load.js
+Demonstrates origin saturation and HTTP 503 drops on the direct origin without queueing:
 
-# 4. Sequential comparison test
-k6 run --ca-cert ../certs/surgeguard.crt scripts/comparison.js
+```bash
+k6 run --ca-cert certs/surgeguard.crt k6/scripts/unguarded-load.js
+```
+
+### D. Guarded-Only Load Test
+
+Demonstrates token-bucket virtual queueing, session persistence, and zero drops at origin:
+
+```bash
+k6 run --ca-cert certs/surgeguard.crt k6/scripts/guarded-load.js
+```
+
+### E. Sequential Comparison Test
+
+Runs Unguarded first, cools down for 5 seconds, then runs Guarded:
+
+```bash
+k6 run --ca-cert certs/surgeguard.crt k6/scripts/comparison.js
 ```
 
 ---
 
-## 4. Configurable Environment Variables
+## 4. Configurable Environment Variables & Safe Tuning
 
-All scripts are conservative by default and configurable through environment variables:
+All load settings are safely bounded and configurable via environment variables:
 
 | Variable | Default Value | Description |
 | :--- | :--- | :--- |
-| `GUARDED_URL` | `https://localhost:8080` | Entry point for SurgeGuard protected gateway. |
-| `UNGUARDED_URL` | `http://127.0.0.1:8081` | Entry point for raw unprotected demo origin. |
-| `VUS` | `10` | Concurrency (virtual users) during test hold phases. |
-| `MAX_VUS` | `100` | Hard safety ceiling to avoid exhausting EC2 or host memory. |
+| `GUARDED_URL` | `https://surgeguard-protected.duckdns.org` | Entry point for SurgeGuard protected gateway. |
+| `UNGUARDED_URL` | `https://surgeguard-direct.duckdns.org` | Entry point for raw unprotected demo origin. |
+| `VUS` | `10` | Default concurrency (virtual users) for scenarios. |
+| `UNGUARDED_VUS` | `10` | Concurrency for the unguarded scenario in `live-demo.js`. |
+| `GUARDED_VUS` | `10` | Concurrency for the guarded scenario in `live-demo.js`. |
+| `MAX_VUS` | `100` | Hard safety ceiling to avoid exhausting host CPU/memory. |
 | `RAMP` | `10s` | Ramp-up duration to target VUs. |
-| `HOLD` | `25s` | Hold duration at peak concurrency. |
-| `THINK` | `0.5` | Pacing delay between page views per VU in seconds. |
-| `MAX_QUEUE_WAIT` | `60` | Maximum seconds a VU will wait in queue before timing out. |
-| `INSECURE_TLS` | `false` | Set to `true` only if self-signed CA cannot be passed. |
-| `SSL_CERT_FILE` | `/certs/surgeguard.crt` | Path to repository test CA cert for TLS verification. |
+| `HOLD` | `25s` | Duration at peak sustained concurrency. |
+| `COOLDOWN` | `5s` | Cooldown duration before stopping. |
+| `THINK` | `0.5` | Pacing delay between requests per VU (seconds). |
+| `MAX_QUEUE_WAIT` | `60` | Maximum queue wait time before visitor timeout (seconds). |
+| `REQUEST_TIMEOUT` | `15s` | Per-request network timeout. |
+| `INSECURE_TLS` | `false` | Set `true` only if self-signed CA cannot be passed. |
 
-### Example Custom Execution
+### Adjusting Traffic Intensity Safely
+
+To scale up load safely without crashing host services:
 
 ```bash
-# Conservative test with 15 VUs and 30s hold targeting DuckDNS domain with test CA:
+# Moderate surge demonstration (15 VUs unguarded, 15 VUs guarded, 30s hold):
 k6 run \
   --ca-cert certs/surgeguard.crt \
-  -e GUARDED_URL=https://surgeguard-protected.duckdns.org:8443 \
-  -e UNGUARDED_URL=https://surgeguard-direct.duckdns.org:8443 \
-  -e VUS=15 \
+  -e UNGUARDED_VUS=15 \
+  -e GUARDED_VUS=15 \
   -e HOLD=30s \
-  scripts/comparison.js
+  k6/scripts/live-demo.js
+
+# Stress demonstration (25 VUs, 45s hold):
+k6 run \
+  --ca-cert certs/surgeguard.crt \
+  -e UNGUARDED_VUS=25 \
+  -e GUARDED_VUS=25 \
+  -e HOLD=45s \
+  k6/scripts/live-demo.js
+```
+
+> **Safety Warning:** Do not set `VUS` > 100 on t3.medium EC2 instances. The hard ceiling `MAX_VUS=100` prevents accidental host resource exhaustion.
+
+---
+
+## 5. Generating the Comparison Report
+
+When `k6/scripts/live-demo.js` executes, it automatically generates two output files:
+
+1. **`k6/results/live-demo-result.json`**: Structured JSON containing latency percentiles (p50, p95, p99), response counts (200, 503, connection errors), queue wait times, and status determinations.
+2. **`k6/results/live-demo-report.md`**: Markdown report detailing the side-by-side findings, configuration, and verification notes.
+
+To view the generated report after a run:
+
+```bash
+cat k6/results/live-demo-report.md
 ```
 
 ---
 
-## 5. Expected Behaviors & Observability
+## 6. Expected Outcomes & Verification Criteria
 
-### Demo 1 (Guarded)
-- **Edge Authentication**: Initial visit without valid admission credentials receives an HTTP `302 Found` redirecting to `/waiting-room`.
-- **Deterministic Queueing**: The visitor calls `POST /api/v1/queue/join` and begins heartbeat polling at `GET /api/v1/queue/status`.
-- **Admission Outcome**: The background worker admits visitors at `ADMISSION_RATE` (default 10/s) using an atomic Redis Lua token bucket.
-- **Origin Performance**: Once admitted, requests receive an HTTP `200 OK` statement of examination marks. **Zero HTTP 503 errors occur at the origin.**
-
-### Demo 2 (Unguarded)
-- **Direct Entry**: Requests pass straight through Nginx without token verification.
-- **Controlled Saturation**: Concurrency ceiling `DEMO_MAX_CONCURRENCY=8` limits simultaneous database simulation tasks.
-- **Rejection Behavior**: When concurrency exceeds 8, queued requests time out after `DEMO_QUEUE_TIMEOUT_MS` (1.5s), triggering intentional `HTTP 503 Service Overloaded` responses.
-- **Immediate Recovery**: Once test load ceases, semaphore slots free up and origin response times immediately recover back to baseline (~150ms).
+| Test Outcome | DEMO 2 — Unguarded | DEMO 1 — Guarded |
+| :--- | :--- | :--- |
+| **Edge Gate** | Direct passthrough (no token check) | HTTP 302 &rarr; `/waiting-room` |
+| **Queueing** | None | FIFO queue in Redis via Lua token bucket |
+| **Origin Concurrency** | Saturated (`DEMO_MAX_CONCURRENCY=8`) | Controlled (`ADMISSION_RATE=10/s`) |
+| **HTTP 503 Responses** | **Yes** (genuine semaphore rejections under load) | **0** (origin operates within capacity) |
+| **Response Latency (p95)**| **Elevated** (queue timeout backpressure: ~1500ms) | **Optimal** (~120-180ms once admitted) |
+| **Final Status** | **DEGRADED / DOWN** | **UP / PROTECTED** |
 
 ---
 
-## 6. Safety, Isolation, and Troubleshooting
+## 7. Troubleshooting & Health Verification
 
-1. **Independent Upstreams**:
-   - Guarded traffic routes to `origin_pool` (`demo-1`, `demo-2`).
-   - Unguarded traffic routes to `origin_direct` (`demo-direct`).
-   - Saturating Demo 2 does not exhaust Demo 1's work slots or trigger admission auto-pausing.
-2. **Sequential Comparison Phases**:
-   - `scripts/comparison.js` automatically computes sequential execution timing so Phase 1 (Unguarded) completes entirely before Phase 2 (Guarded) starts.
-   - A 5-second cooldown gap ensures host CPU and memory return to baseline before Phase 2 begins.
-3. **Stopping a Test**:
-   - Interrupt test execution at any time using `Ctrl + C`.
-   - The origin semaphore releases in-flight slots gracefully.
-4. **Resetting Queue State**:
-   If needed, reset the SurgeGuard queue in Redis:
+1. **Verify Edge Gateway Health**:
+   ```bash
+   curl -k -s https://surgeguard-protected.duckdns.org/healthz
+   ```
+
+2. **Verify Unguarded Direct Origin Health**:
+   ```bash
+   curl -k -s https://surgeguard-direct.duckdns.org/health
+   ```
+
+3. **Reset Redis Queue State**:
    ```bash
    make reset-queue
-   ```
-5. **Verifying Health**:
-   ```bash
-   curl -k -s https://localhost:8080/healthz   # Nginx edge health
-   curl -s http://127.0.0.1:8081/health      # Unguarded demo health
    ```

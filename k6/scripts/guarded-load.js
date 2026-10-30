@@ -92,10 +92,10 @@ export default function () {
     guardedDuration.add(elapsed);
 
     if (res.status === 200) {
-      guardedOk.inc();
+      guardedOk.add(1);
       guardedErrors.add(0);
     } else if (res.status === 503) {
-      guarded503Count.inc();
+      guarded503Count.add(1);
       guardedErrors.add(1);
     } else {
       guardedErrors.add(isHttpError(res) ? 1 : 0);
@@ -118,7 +118,7 @@ export function handleSummary(data) {
     `Admitted via Queue:   ${g.admittedVisitors}`,
     `Successful Views:     ${g.success200}`,
     `503 Rejections:       ${g.error503}`,
-    `Error Percentage:     ${fmt(g.errorRate * 100, 2, "%")}`,
+    `Error Percentage:     ${g.errorRate !== null ? fmt(g.errorRate * 100, 2, "%") : "n/a"}`,
     `Origin Latency p50:   ${fmt(g.p50Ms, 0, " ms")}`,
     `Origin Latency p95:   ${fmt(g.p95Ms, 0, " ms")}`,
     `Origin Latency p99:   ${fmt(g.p99Ms, 0, " ms")}`,
